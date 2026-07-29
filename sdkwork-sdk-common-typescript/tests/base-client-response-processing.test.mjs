@@ -35,6 +35,16 @@ const server = createServer((request, response) => {
     return;
   }
 
+  if (request.url === '/enveloped-composite-item-session') {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({
+      code: 0,
+      data: { item: rawSession, rawKey: 'sk-live-secret' },
+      traceId: 'trace-composite-1',
+    }));
+    return;
+  }
+
   if (request.url === '/enveloped-list') {
     response.writeHead(200, { 'content-type': 'application/json' });
     response.end(JSON.stringify({
@@ -101,8 +111,14 @@ try {
 
   assert.deepEqual(
     await client.get('/enveloped-item-session'),
-    rawSession,
-    'sdkwork-v3 single-resource envelopes must unwrap data.item',
+    { item: rawSession },
+    'the base transport must leave operation-specific item unwrapping to generated clients',
+  );
+
+  assert.deepEqual(
+    await client.get('/enveloped-composite-item-session'),
+    { item: rawSession, rawKey: 'sk-live-secret' },
+    'the base transport must preserve item siblings in composite data payloads',
   );
 
   assert.deepEqual(

@@ -60,19 +60,6 @@ function isApiResultEnvelope<T>(value: unknown): value is ApiResult<T> {
     && ('data' in value || 'msg' in value || 'message' in value);
 }
 
-function unwrapSdkWorkV3Data<T>(data: T): T {
-  if (data === null || data === undefined || typeof data !== 'object' || Array.isArray(data)) {
-    return data;
-  }
-
-  const record = data as Record<string, unknown>;
-  if ('item' in record && record.item !== undefined && record.item !== null) {
-    return record.item as T;
-  }
-
-  return data;
-}
-
 export abstract class BaseHttpClient implements RequestExecutor {
   protected config: Required<Omit<HttpClientConfig, 'interceptors'>> & { baseUrl: string };
   protected authConfig: HttpClientAuthConfig;
@@ -424,7 +411,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
         throw SdkError.fromApiResult(result, response.status);
       }
 
-      return unwrapSdkWorkV3Data(result.data);
+      return result.data as T;
     }
 
     if (contentType?.includes('text/')) {
