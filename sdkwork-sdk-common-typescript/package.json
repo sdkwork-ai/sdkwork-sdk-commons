@@ -1,6 +1,6 @@
 {
   "name": "@sdkwork/sdk-common",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "SDKwork SDK Common - High cohesion, low coupling SDK foundation library",
   "type": "module",
   "main": "./dist/index.cjs",

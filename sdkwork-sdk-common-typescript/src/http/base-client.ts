@@ -21,6 +21,11 @@ import { DefaultAuthTokenManager, buildAuthHeaders } from '../auth';
 import { createLogger, type Logger } from '../utils/logger';
 import { createCacheStore, type CacheStore } from '../utils/cache';
 import { withRetry } from '../utils/retry';
+import {
+  extractStreamLines,
+  normalizeLegacyStreamLine,
+  ServerSentEventDataParser,
+} from './stream-parser';
 
 export interface HttpClientOptions extends HttpClientConfig {
   apiKey?: string;
@@ -567,17 +572,22 @@ export abstract class BaseHttpClient implements RequestExecutor {
       method: options?.method ?? 'POST',
       body: options?.body,
       headers: options?.headers,
+      params: options?.params,
+      timeout: options?.timeout,
+      signal: options?.signal,
       skipAuth: options?.skipAuth,
+      metadata: options?.metadata,
     };
 
     const processedConfig = await this.applyRequestInterceptors(config);
     const url = this.buildBaseUrl(processedConfig.url, processedConfig.params);
     const headers = this.buildHeaders(processedConfig);
+    const serializedBody = this.serializeRequestBody(processedConfig.body, headers);
 
     const response = await this.executeFetch(url, {
       method: processedConfig.method,
       headers,
-      body: processedConfig.body ? JSON.stringify(processedConfig.body) : undefined,
+      body: serializedBody,
       timeout: processedConfig.timeout ?? this.config.timeout,
       signal: processedConfig.signal,
     });
@@ -593,6 +603,15 @@ export abstract class BaseHttpClient implements RequestExecutor {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    const isEventStream = response.headers
+      .get('content-type')
+      ?.toLowerCase()
+      .includes('text/event-stream') === true;
+    const eventParser = isEventStream ? new ServerSentEventDataParser() : undefined;
+
+    const parseLine = eventParser
+      ? (line: string): string | undefined => eventParser.pushLine(line)
+      : normalizeLegacyStreamLine;
 
     try {
       while (true) {
@@ -600,18 +619,29 @@ export abstract class BaseHttpClient implements RequestExecutor {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
+        const extracted = extractStreamLines(buffer);
+        buffer = extracted.remainder;
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine === '' || trimmedLine === 'data: [DONE]') continue;
-          if (trimmedLine.startsWith('data: ')) {
-            yield trimmedLine.slice(6);
-          } else {
-            yield trimmedLine;
+        for (const line of extracted.lines) {
+          const data = parseLine(line);
+          if (data !== undefined) {
+            yield data;
           }
         }
+      }
+
+      buffer += decoder.decode();
+      const extracted = extractStreamLines(buffer, true);
+      for (const line of extracted.lines) {
+        const data = parseLine(line);
+        if (data !== undefined) {
+          yield data;
+        }
+      }
+
+      const finalData = eventParser?.flush();
+      if (finalData !== undefined) {
+        yield finalData;
       }
     } finally {
       reader.releaseLock();

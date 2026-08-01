@@ -4,7 +4,7 @@
   "component": {
     "name": "@sdkwork/sdk-common",
     "displayName": "Sdk Common",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "type": "node-package",
     "root": "sdkwork-sdk-commons/sdkwork-sdk-common-typescript",
     "domain": "platform",
