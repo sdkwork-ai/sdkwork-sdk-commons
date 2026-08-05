@@ -22,7 +22,7 @@ export type {
   ErrorInterceptor,
   HttpClientConfig,
   SdkConfig,
-} from './core';
+} from './core/index';
 
 export {
   DEFAULT_RETRY_CONFIG,
@@ -32,7 +32,7 @@ export {
   SUCCESS_CODES,
   HTTP_STATUS,
   MIME_TYPES,
-} from './core';
+} from './core/index';
 
 export {
   DefaultAuthTokenManager,
@@ -40,7 +40,7 @@ export {
   buildAuthHeaders,
   isTokenValid,
   requiresRefresh,
-} from './auth';
+} from './auth/index';
 
 export type {
   AuthTokenManager,
@@ -50,7 +50,7 @@ export type {
   AuthConfig,
   OAuthConfig,
   OAuthTokens,
-} from './auth';
+} from './auth/index';
 
 export {
   createLogger,
@@ -61,12 +61,12 @@ export {
   sleep,
   calculateDelay,
   createRetryConfig,
-} from './utils';
+} from './utils/index';
 
 export type {
   Logger,
   CacheStore,
-} from './utils';
+} from './utils/index';
 
 export {
   SdkError,
@@ -84,11 +84,11 @@ export {
   isNetworkError,
   isAuthError,
   isRetryableError,
-} from './errors';
+} from './errors/index';
 
-export type { ErrorCode, ErrorDetail, SdkProblemDetail } from './errors';
+export type { ErrorCode, ErrorDetail, SdkProblemDetail } from './errors/index';
 
-export { BaseHttpClient, createBaseHttpClient } from './http';
+export { BaseHttpClient, createBaseHttpClient } from './http/index';
 export type {
   HttpClientOptions,
   HttpClientAuthConfig,
@@ -96,4 +96,4 @@ export type {
   ResponseProcessor,
   UrlBuilder,
   HeaderBuilder,
-} from './http';
+} from './http/index';
