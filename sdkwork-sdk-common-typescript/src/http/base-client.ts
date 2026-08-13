@@ -286,21 +286,13 @@ export abstract class BaseHttpClient implements RequestExecutor {
       Object.assign(headers, authHeaders);
     }
 
-    if (this.tenantId) {
-      headers['X-Tenant-Id'] = this.tenantId;
-    }
-
-    if (this.organizationId) {
-      headers['X-Organization-Id'] = this.organizationId;
-    }
-
-    if (this.platform) {
-      headers['X-Platform'] = this.platform;
-    }
-
-    if (this.userId !== undefined) {
-      headers['X-User-Id'] = String(this.userId);
-    }
+    // SDKWork API_SPEC §10.2 / SECURITY_SPEC §5.1: clients must not project
+    // identity into requests. The server derives tenant/organization/user
+    // from the authenticated principal (dual token); injecting
+    // `X-Tenant-Id`/`X-Organization-Id`/`X-Platform`/`X-User-Id` here is
+    // rejected by the Web Framework surface classification (40001) and is
+    // never read by any SDKWork backend. Keep the setters for configuration
+    // parity, but they no longer become request headers.
 
     return headers;
   }
