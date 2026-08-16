@@ -154,12 +154,7 @@ export interface HttpClientConfig {
   interceptors?: Interceptors;
 }
 
-export interface SdkConfig extends HttpClientConfig {
-  tenantId?: string;
-  organizationId?: string;
-  platform?: string;
-  userId?: string | number;
-}
+export interface SdkConfig extends HttpClientConfig {}
 
 export interface RequestState {
   pending: boolean;

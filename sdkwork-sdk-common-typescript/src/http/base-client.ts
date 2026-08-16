@@ -71,10 +71,6 @@ export abstract class BaseHttpClient implements RequestExecutor {
   protected logger: Logger;
   protected cache: CacheStore;
   protected interceptors: Interceptors;
-  protected tenantId?: string;
-  protected organizationId?: string;
-  protected platform?: string;
-  protected userId?: string | number;
 
   constructor(config: HttpClientOptions) {
     this.config = {
@@ -168,22 +164,6 @@ export abstract class BaseHttpClient implements RequestExecutor {
     }
   }
 
-  setTenantId(tenantId: string): void {
-    this.tenantId = tenantId;
-  }
-
-  setOrganizationId(organizationId: string): void {
-    this.organizationId = organizationId;
-  }
-
-  setPlatform(platform: string): void {
-    this.platform = platform;
-  }
-
-  setUserId(userId: string | number): void {
-    this.userId = userId;
-  }
-
   clearAuthToken(): void {
     this.authConfig.tokenManager?.clearTokens();
   }
@@ -230,10 +210,6 @@ export abstract class BaseHttpClient implements RequestExecutor {
       apiKey: this.authConfig.apiKey,
       accessToken: this.authConfig.tokenManager?.getAccessToken(),
       authToken: this.authConfig.tokenManager?.getAuthToken(),
-      tenantId: this.tenantId,
-      organizationId: this.organizationId,
-      platform: this.platform,
-      userId: this.userId,
     };
   }
 
