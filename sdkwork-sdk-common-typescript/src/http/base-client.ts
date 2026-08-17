@@ -109,13 +109,14 @@ export abstract class BaseHttpClient implements RequestExecutor {
     };
 
     const authMode = this.determineAuthMode(config);
+    const tokenManager = config.tokenManager ?? new DefaultAuthTokenManager({
+      ...(config.accessToken !== undefined ? { accessToken: config.accessToken } : {}),
+      ...(config.authToken !== undefined ? { authToken: config.authToken } : {}),
+    });
     this.authConfig = {
       authMode,
-      apiKey: config.apiKey,
-      tokenManager: config.tokenManager ?? new DefaultAuthTokenManager({
-        accessToken: config.accessToken,
-        authToken: config.authToken,
-      }),
+      ...(config.apiKey !== undefined ? { apiKey: config.apiKey } : {}),
+      tokenManager,
     };
   }
 
@@ -152,7 +153,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
     this.authConfig.tokenManager?.setAuthToken(token);
     if (this.authConfig.authMode === 'apikey') {
       this.authConfig.authMode = 'dual-token';
-      this.authConfig.apiKey = undefined;
+      delete this.authConfig.apiKey;
     }
   }
 
@@ -160,7 +161,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
     this.authConfig.tokenManager?.setAccessToken(token);
     if (this.authConfig.authMode === 'apikey') {
       this.authConfig.authMode = 'dual-token';
-      this.authConfig.apiKey = undefined;
+      delete this.authConfig.apiKey;
     }
   }
 
@@ -351,7 +352,11 @@ export abstract class BaseHttpClient implements RequestExecutor {
       // Ignore JSON parse errors
     }
 
-    const error = SdkError.fromHttpStatus(response.status, errorMessage, { problem });
+    const error = SdkError.fromHttpStatus(
+      response.status,
+      errorMessage,
+      problem === undefined ? undefined : { problem }
+    );
 
     await this.applyErrorInterceptors(error, config);
     throw error;
@@ -427,7 +432,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
       const response = await fetch(url, {
         method: options.method,
         headers: options.headers,
-        body: options.body,
+        ...(options.body !== undefined ? { body: options.body } : {}),
         signal: controller.signal,
       });
 
@@ -461,9 +466,9 @@ export abstract class BaseHttpClient implements RequestExecutor {
     const response = await this.executeFetch(url, {
       method: processedConfig.method,
       headers,
-      body: serializedBody,
+      ...(serializedBody !== undefined ? { body: serializedBody } : {}),
       timeout: processedConfig.timeout ?? this.config.timeout,
-      signal: processedConfig.signal,
+      ...(processedConfig.signal !== undefined ? { signal: processedConfig.signal } : {}),
     });
 
     return this.processResponse<T>(response, processedConfig);
@@ -503,7 +508,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
       headers,
       body: formData,
       timeout: processedConfig.timeout ?? this.config.timeout,
-      signal: processedConfig.signal,
+      ...(processedConfig.signal !== undefined ? { signal: processedConfig.signal } : {}),
     });
 
     return this.processResponse<T>(response, processedConfig);
@@ -524,7 +529,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
       method: 'GET',
       headers,
       timeout: processedConfig.timeout ?? this.config.timeout,
-      signal: processedConfig.signal,
+      ...(processedConfig.signal !== undefined ? { signal: processedConfig.signal } : {}),
     });
 
     if (!response.ok) {
@@ -538,13 +543,13 @@ export abstract class BaseHttpClient implements RequestExecutor {
     const config: RequestConfig = {
       url: path,
       method: options?.method ?? 'POST',
-      body: options?.body,
-      headers: options?.headers,
-      params: options?.params,
-      timeout: options?.timeout,
-      signal: options?.signal,
-      skipAuth: options?.skipAuth,
-      metadata: options?.metadata,
+      ...(options?.body !== undefined ? { body: options.body } : {}),
+      ...(options?.headers !== undefined ? { headers: options.headers } : {}),
+      ...(options?.params !== undefined ? { params: options.params } : {}),
+      ...(options?.timeout !== undefined ? { timeout: options.timeout } : {}),
+      ...(options?.signal !== undefined ? { signal: options.signal } : {}),
+      ...(options?.skipAuth !== undefined ? { skipAuth: options.skipAuth } : {}),
+      ...(options?.metadata !== undefined ? { metadata: options.metadata } : {}),
     };
 
     const processedConfig = await this.applyRequestInterceptors(config);
@@ -555,9 +560,9 @@ export abstract class BaseHttpClient implements RequestExecutor {
     const response = await this.executeFetch(url, {
       method: processedConfig.method,
       headers,
-      body: serializedBody,
+      ...(serializedBody !== undefined ? { body: serializedBody } : {}),
       timeout: processedConfig.timeout ?? this.config.timeout,
-      signal: processedConfig.signal,
+      ...(processedConfig.signal !== undefined ? { signal: processedConfig.signal } : {}),
     });
 
     if (!response.ok) {
@@ -623,12 +628,12 @@ export function createBaseHttpClient(config: HttpClientOptions): BaseHttpClient 
       const config: RequestConfig = {
         url: path,
         method: options.method ?? 'GET',
-        headers: options.headers,
-        params: options.params,
-        body: options.body,
-        timeout: options.timeout,
-        signal: options.signal,
-        skipAuth: options.skipAuth,
+        ...(options.headers !== undefined ? { headers: options.headers } : {}),
+        ...(options.params !== undefined ? { params: options.params } : {}),
+        ...(options.body !== undefined ? { body: options.body } : {}),
+        ...(options.timeout !== undefined ? { timeout: options.timeout } : {}),
+        ...(options.signal !== undefined ? { signal: options.signal } : {}),
+        ...(options.skipAuth !== undefined ? { skipAuth: options.skipAuth } : {}),
       };
 
       return withRetry(
@@ -638,7 +643,10 @@ export function createBaseHttpClient(config: HttpClientOptions): BaseHttpClient 
     }
 
     async get<T>(path: string, params?: QueryParams): Promise<T> {
-      return this.request<T>(path, { method: 'GET', params });
+      return this.request<T>(path, {
+        method: 'GET',
+        ...(params !== undefined ? { params } : {}),
+      });
     }
 
     async post<T>(path: string, body?: unknown): Promise<T> {

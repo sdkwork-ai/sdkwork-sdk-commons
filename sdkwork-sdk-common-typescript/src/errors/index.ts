@@ -51,12 +51,12 @@ export interface SdkProblemDetail {
 
 export class SdkError extends Error {
   public readonly code: ErrorCode;
-  public readonly httpStatus?: number;
-  public readonly details?: ErrorDetail[];
+  public readonly httpStatus: number | undefined;
+  public readonly details: ErrorDetail[] | undefined;
   public readonly timestamp: number;
-  public readonly traceId?: string;
-  public readonly problem?: SdkProblemDetail;
-  public readonly metadata?: Record<string, unknown>;
+  public readonly traceId: string | undefined;
+  public readonly problem: SdkProblemDetail | undefined;
+  public readonly metadata: Record<string, unknown> | undefined;
 
   constructor(
     message: string,
@@ -157,7 +157,7 @@ export class SdkError extends Error {
     };
   }
 
-  toString(): string {
+  override toString(): string {
     return `${this.name}: ${this.message} (code: ${this.code})`;
   }
 
@@ -189,14 +189,14 @@ export class NetworkError extends SdkError {
 }
 
 export class TimeoutError extends SdkError {
-  public readonly timeout?: number;
+  public readonly timeout: number | undefined;
 
   constructor(message: string = 'Request timeout', timeout?: number, options?: ErrorOptions) {
     super(message, 'TIMEOUT', undefined, options);
     this.timeout = timeout;
   }
 
-  toJSON(): Record<string, unknown> {
+  override toJSON(): Record<string, unknown> {
     return { ...super.toJSON(), timeout: this.timeout };
   }
 }
@@ -241,7 +241,12 @@ export class NotFoundError extends SdkError {
 
 export class ValidationError extends SdkError {
   constructor(message: string = 'Validation error', details?: ErrorDetail[], options?: ErrorOptions) {
-    super(message, 'VALIDATION_ERROR', HTTP_STATUS.BAD_REQUEST, { ...options, details });
+    super(
+      message,
+      'VALIDATION_ERROR',
+      HTTP_STATUS.BAD_REQUEST,
+      details === undefined ? options : { ...options, details }
+    );
   }
 }
 
@@ -252,7 +257,7 @@ export class ConflictError extends SdkError {
 }
 
 export class MethodNotAllowedError extends SdkError {
-  public readonly allowedMethods?: string[];
+  public readonly allowedMethods: string[] | undefined;
 
   constructor(message: string = 'Method not allowed', allowedMethods?: string[], options?: ErrorOptions) {
     super(message, 'VALIDATION_ERROR', HTTP_STATUS.METHOD_NOT_ALLOWED, options);
@@ -261,14 +266,14 @@ export class MethodNotAllowedError extends SdkError {
 }
 
 export class RateLimitError extends SdkError {
-  public readonly retryAfter?: number;
+  public readonly retryAfter: number | undefined;
 
   constructor(message: string = 'Rate limit exceeded', retryAfter?: number, options?: ErrorOptions) {
     super(message, 'RATE_LIMIT', HTTP_STATUS.TOO_MANY_REQUESTS, options);
     this.retryAfter = retryAfter;
   }
 
-  toJSON(): Record<string, unknown> {
+  override toJSON(): Record<string, unknown> {
     return { ...super.toJSON(), retryAfter: this.retryAfter };
   }
 }
@@ -301,7 +306,7 @@ export class GatewayTimeoutError extends ServerError {
 }
 
 export class BusinessError extends SdkError {
-  public readonly businessCode?: string | number;
+  public readonly businessCode: string | number | undefined;
   public readonly data?: unknown;
 
   constructor(message: string, code?: string | number, data?: unknown, options?: ErrorOptions) {
@@ -310,7 +315,7 @@ export class BusinessError extends SdkError {
     this.data = data;
   }
 
-  toJSON(): Record<string, unknown> {
+  override toJSON(): Record<string, unknown> {
     return { ...super.toJSON(), businessCode: this.businessCode, data: this.data };
   }
 }

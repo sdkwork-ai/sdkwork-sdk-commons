@@ -48,7 +48,7 @@ export interface AuthConfig {
 
 export class DefaultAuthTokenManager implements AuthTokenManager {
   private tokens: AuthTokens = {};
-  private readonly events?: TokenManagerEvents;
+  private readonly events: TokenManagerEvents | undefined;
 
   constructor(initialTokens?: AuthTokens, events?: TokenManagerEvents) {
     if (initialTokens) {
@@ -104,11 +104,11 @@ export class DefaultAuthTokenManager implements AuthTokenManager {
   }
 
   clearAuthToken(): void {
-    this.tokens.authToken = undefined;
+    delete this.tokens.authToken;
   }
 
   clearAccessToken(): void {
-    this.tokens.accessToken = undefined;
+    delete this.tokens.accessToken;
   }
 
   isExpired(): boolean {

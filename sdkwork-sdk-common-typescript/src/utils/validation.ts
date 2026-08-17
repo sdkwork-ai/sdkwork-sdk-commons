@@ -2,6 +2,10 @@ export type ValidationResult = { valid: boolean; message?: string };
 
 export type Validator = (value: unknown) => ValidationResult;
 
+function createValidationResult(valid: boolean, message: string): ValidationResult {
+  return valid ? { valid: true } : { valid: false, message };
+}
+
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_REGEX = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
 export const URL_REGEX = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
@@ -493,105 +497,105 @@ export function matches(value: string, regex: string | RegExp): boolean {
 
 export function required(value: unknown): ValidationResult {
   const valid = !isEmpty(value);
-  return { valid, message: valid ? undefined : 'This field is required' };
+  return createValidationResult(valid, 'This field is required');
 }
 
 export function email(value: string): ValidationResult {
   const valid = isEmail(value);
-  return { valid, message: valid ? undefined : 'Invalid email address' };
+  return createValidationResult(valid, 'Invalid email address');
 }
 
 export function url(value: string): ValidationResult {
   const valid = isUrl(value);
-  return { valid, message: valid ? undefined : 'Invalid URL' };
+  return createValidationResult(valid, 'Invalid URL');
 }
 
 export function uuid(value: string): ValidationResult {
   const valid = isUuid(value);
-  return { valid, message: valid ? undefined : 'Invalid UUID' };
+  return createValidationResult(valid, 'Invalid UUID');
 }
 
 export function phone(value: string): ValidationResult {
   const valid = isPhone(value);
-  return { valid, message: valid ? undefined : 'Invalid phone number' };
+  return createValidationResult(valid, 'Invalid phone number');
 }
 
 export function creditCard(value: string): ValidationResult {
   const valid = isCreditCard(value);
-  return { valid, message: valid ? undefined : 'Invalid credit card number' };
+  return createValidationResult(valid, 'Invalid credit card number');
 }
 
 export function password(value: string): ValidationResult {
   const valid = isPassword(value);
-  return { valid, message: valid ? undefined : 'Password must be at least 8 characters' };
+  return createValidationResult(valid, 'Password must be at least 8 characters');
 }
 
 export function passwordStrong(value: string): ValidationResult {
   const valid = isPasswordStrong(value);
-  return { valid, message: valid ? undefined : 'Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character' };
+  return createValidationResult(valid, 'Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character');
 }
 
 export function integer(value: unknown): ValidationResult {
   const valid = isInteger(value);
-  return { valid, message: valid ? undefined : 'Must be an integer' };
+  return createValidationResult(valid, 'Must be an integer');
 }
 
 export function positiveNumber(value: unknown): ValidationResult {
   const valid = isPositive(value);
-  return { valid, message: valid ? undefined : 'Must be a positive number' };
+  return createValidationResult(valid, 'Must be a positive number');
 }
 
 export function negativeNumber(value: unknown): ValidationResult {
   const valid = isNegative(value);
-  return { valid, message: valid ? undefined : 'Must be a negative number' };
+  return createValidationResult(valid, 'Must be a negative number');
 }
 
 export function minValidator(min: number): Validator {
   return (value: unknown) => {
     const valid = typeof value === 'number' && value >= min;
-    return { valid, message: valid ? undefined : `Must be at least ${min}` };
+    return createValidationResult(valid, `Must be at least ${min}`);
   };
 }
 
 export function maxValidator(max: number): Validator {
   return (value: unknown) => {
     const valid = typeof value === 'number' && value <= max;
-    return { valid, message: valid ? undefined : `Must be at most ${max}` };
+    return createValidationResult(valid, `Must be at most ${max}`);
   };
 }
 
 export function rangeValidator(min: number, max: number): Validator {
   return (value: unknown) => {
     const valid = typeof value === 'number' && value >= min && value <= max;
-    return { valid, message: valid ? undefined : `Must be between ${min} and ${max}` };
+    return createValidationResult(valid, `Must be between ${min} and ${max}`);
   };
 }
 
 export function minLengthValidator(min: number): Validator {
   return (value: unknown) => {
     const valid = typeof value === 'string' && value.length >= min;
-    return { valid, message: valid ? undefined : `Must be at least ${min} characters` };
+    return createValidationResult(valid, `Must be at least ${min} characters`);
   };
 }
 
 export function maxLengthValidator(max: number): Validator {
   return (value: unknown) => {
     const valid = typeof value === 'string' && value.length <= max;
-    return { valid, message: valid ? undefined : `Must be at most ${max} characters` };
+    return createValidationResult(valid, `Must be at most ${max} characters`);
   };
 }
 
 export function patternValidator(regex: RegExp, message?: string): Validator {
   return (value: unknown) => {
     const valid = typeof value === 'string' && regex.test(value);
-    return { valid, message: valid ? undefined : message ?? 'Invalid format' };
+    return createValidationResult(valid, message ?? 'Invalid format');
   };
 }
 
 export function oneOfValidator<T>(options: T[], message?: string): Validator {
   return (value: unknown) => {
     const valid = options.includes(value as T);
-    return { valid, message: valid ? undefined : message ?? 'Invalid option' };
+    return createValidationResult(valid, message ?? 'Invalid option');
   };
 }
 
