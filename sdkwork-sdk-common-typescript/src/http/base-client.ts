@@ -56,6 +56,18 @@ export interface HeaderBuilder {
   build(config: RequestConfig, skipAuth?: boolean): HttpHeaders;
 }
 
+const SDKWORK_API_PREFIXES = ['/app/v3/api', '/backend/v3/api', '/gateway/v3/api'] as const;
+
+function dedupeSdkWorkApiPath(baseUrl: string, path: string): string {
+  for (const prefix of SDKWORK_API_PREFIXES) {
+    if (baseUrl.endsWith(prefix) && path.startsWith(prefix)) {
+      const remainder = path.slice(prefix.length);
+      return remainder.startsWith('/') ? remainder : `/${remainder}`;
+    }
+  }
+  return path;
+}
+
 function isApiResultEnvelope<T>(value: unknown): value is ApiResult<T> {
   return value !== null
     && value !== undefined
@@ -221,7 +233,8 @@ export abstract class BaseHttpClient implements RequestExecutor {
   protected buildBaseUrl(path: string, params?: QueryParams): string {
     const baseUrl = this.config.baseUrl.replace(/\/$/, '');
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    let url = `${baseUrl}${normalizedPath}`;
+    const requestPath = dedupeSdkWorkApiPath(baseUrl, normalizedPath);
+    let url = `${baseUrl}${requestPath}`;
 
     if (params) {
       const searchParams = new URLSearchParams();
