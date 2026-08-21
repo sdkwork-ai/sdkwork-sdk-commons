@@ -77,6 +77,43 @@ function isApiResultEnvelope<T>(value: unknown): value is ApiResult<T> {
     && ('data' in value || 'msg' in value || 'message' in value);
 }
 
+/** Canonical identity projection headers forbidden on app/backend dual-token calls (API_SPEC §10.2). */
+const IDENTITY_PROJECTION_HEADER_NAMES = new Set([
+  'x-sdkwork-tenant-id',
+  'x-sdkwork-organization-id',
+  'x-sdkwork-user-id',
+  'x-sdkwork-actor-id',
+  'x-sdkwork-actor-kind',
+  'x-sdkwork-session-id',
+  'x-sdkwork-app-id',
+  'x-sdkwork-environment',
+  'x-sdkwork-deployment-profile',
+  'x-sdkwork-deployment-mode',
+  'x-sdkwork-runtime-target',
+  'x-sdkwork-auth-level',
+  'x-sdkwork-data-scope',
+  'x-sdkwork-permission-scope',
+  'x-sdkwork-device-id',
+  'x-sdkwork-context-signature',
+  'x-sdkwork-subject-tenant-id',
+  'x-sdkwork-subject-organization-id',
+  'x-sdkwork-subject-user-id',
+  'x-sdkwork-subject-timestamp',
+  'x-sdkwork-subject-signature',
+  'x-tenant-id',
+  'x-organization-id',
+  'x-platform',
+  'x-user-id',
+]);
+
+function stripIdentityProjectionHeaders(headers: HttpHeaders): void {
+  for (const name of Object.keys(headers)) {
+    if (IDENTITY_PROJECTION_HEADER_NAMES.has(name.toLowerCase())) {
+      delete headers[name];
+    }
+  }
+}
+
 export abstract class BaseHttpClient implements RequestExecutor {
   protected config: Required<Omit<HttpClientConfig, 'interceptors'>> & { baseUrl: string };
   protected authConfig: HttpClientAuthConfig;
@@ -278,11 +315,10 @@ export abstract class BaseHttpClient implements RequestExecutor {
 
     // SDKWork API_SPEC §10.2 / SECURITY_SPEC §5.1: clients must not project
     // identity into requests. The server derives tenant/organization/user
-    // from the authenticated principal (dual token); injecting
-    // `X-Tenant-Id`/`X-Organization-Id`/`X-Platform`/`X-User-Id` here is
-    // rejected by the Web Framework surface classification (40001) and is
-    // never read by any SDKWork backend. Keep the setters for configuration
-    // parity, but they no longer become request headers.
+    // from the authenticated principal (dual token). Strip any leaked
+    // projection headers from config.headers so stale callers cannot trip
+    // Web Framework surface classification (40001).
+    stripIdentityProjectionHeaders(headers);
 
     return headers;
   }
