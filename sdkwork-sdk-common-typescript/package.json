@@ -63,6 +63,9 @@
   ],
   "author": "SDKwork",
   "license": "MIT",
+  "dependencies": {
+    "@sdkwork/utils": "^0.11.0"
+  },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
