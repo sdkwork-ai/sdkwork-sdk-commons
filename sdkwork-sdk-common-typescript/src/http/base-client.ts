@@ -77,15 +77,24 @@ function isApiResultEnvelope<T>(value: unknown): value is ApiResult<T> {
     && ('data' in value || 'msg' in value || 'message' in value);
 }
 
-/** Canonical identity projection headers forbidden on app/backend dual-token calls (API_SPEC §10.2). */
+/**
+ * Canonical identity projection headers forbidden on app/backend dual-token calls.
+ *
+ * Aligned 1:1 with the Web Framework server guard
+ * `sdkwork-web-core::constants::FORBIDDEN_CLIENT_IDENTITY_HEADERS` (API_SPEC §10.2,
+ * SECURITY_SPEC §5.1, spec B9). The server rejects any request carrying these
+ * headers with 400/40001 (surface-classification), so clients must strip them
+ * defensively before sending. Extra client-side entries (x-sdkwork-subject-*,
+ * x-platform) are superset hardening and harmless.
+ */
 const IDENTITY_PROJECTION_HEADER_NAMES = new Set([
   'x-sdkwork-tenant-id',
-  'x-sdkwork-organization-id',
+  'x-sdkwork-app-id',
   'x-sdkwork-user-id',
+  'x-sdkwork-organization-id',
   'x-sdkwork-actor-id',
   'x-sdkwork-actor-kind',
   'x-sdkwork-session-id',
-  'x-sdkwork-app-id',
   'x-sdkwork-environment',
   'x-sdkwork-deployment-profile',
   'x-sdkwork-deployment-mode',
@@ -95,12 +104,16 @@ const IDENTITY_PROJECTION_HEADER_NAMES = new Set([
   'x-sdkwork-permission-scope',
   'x-sdkwork-device-id',
   'x-sdkwork-context-signature',
+  // Server-derived route metadata: the framework MUST derive operation_id from
+  // the route manifest, never from client-supplied headers (API_SPEC §10.2).
+  'x-sdkwork-operation-id',
   'x-sdkwork-subject-tenant-id',
   'x-sdkwork-subject-organization-id',
   'x-sdkwork-subject-user-id',
   'x-sdkwork-subject-timestamp',
   'x-sdkwork-subject-signature',
   'x-tenant-id',
+  'x-app-id',
   'x-organization-id',
   'x-platform',
   'x-user-id',
