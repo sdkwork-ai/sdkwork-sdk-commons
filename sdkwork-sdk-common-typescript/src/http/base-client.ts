@@ -163,7 +163,7 @@ export abstract class BaseHttpClient implements RequestExecutor {
 
     this.logger = createLogger(this.config.logger);
     this.cache = createCacheStore(this.config.cache);
-    
+
     this.interceptors = config.interceptors ?? {
       request: [],
       response: [],

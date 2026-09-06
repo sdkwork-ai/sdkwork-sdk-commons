@@ -1,7 +1,7 @@
 import type { ApiResult } from '../core/types';
 import { HTTP_STATUS } from '../core/types';
 
-export type ErrorCode = 
+export type ErrorCode =
   | 'UNKNOWN'
   | 'NETWORK_ERROR'
   | 'TIMEOUT'
@@ -73,14 +73,14 @@ export class SdkError extends Error {
     this.traceId = options?.traceId ?? options?.problem?.traceId;
     this.problem = options?.problem;
     this.metadata = options?.metadata;
-    
+
     Object.setPrototypeOf(this, new.target.prototype);
   }
 
   static fromApiResult(result: ApiResult, httpStatus?: number): SdkError {
     const code = String(result.code);
     const message = result.msg || result.message || 'Unknown error';
-    
+
     switch (code) {
       case '400':
       case '4000':
@@ -110,7 +110,7 @@ export class SdkError extends Error {
 
   static fromHttpStatus(status: number, message?: string, options?: ErrorOptions): SdkError {
     const defaultMessage = message ?? `HTTP Error ${status}`;
-    
+
     switch (status) {
       case HTTP_STATUS.BAD_REQUEST:
       case HTTP_STATUS.UNPROCESSABLE_ENTITY:
@@ -358,7 +358,7 @@ export function isBusinessError(error: unknown): error is BusinessError {
 
 export function isRetryableError(error: unknown): boolean {
   if (!(error instanceof SdkError)) return false;
-  
+
   return (
     error instanceof NetworkError ||
     error instanceof TimeoutError ||

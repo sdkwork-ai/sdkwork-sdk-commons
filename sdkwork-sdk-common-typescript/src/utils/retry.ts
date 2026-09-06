@@ -15,7 +15,7 @@ export function calculateDelay(
   maxDelay: number
 ): number {
   let delay: number;
-  
+
   switch (backoff) {
     case 'fixed':
       delay = baseDelay;
@@ -29,7 +29,7 @@ export function calculateDelay(
     default:
       delay = baseDelay;
   }
-  
+
   return Math.min(delay, maxDelay);
 }
 
@@ -41,11 +41,11 @@ export function shouldRetry(
   if (attempt >= config.maxRetries) {
     return false;
   }
-  
+
   if (config.retryCondition) {
     return config.retryCondition(error, attempt);
   }
-  
+
   return isRetryableError(error);
 }
 
@@ -57,32 +57,32 @@ export async function withRetry<T>(
     ...DEFAULT_RETRY_CONFIG,
     ...config,
   };
-  
+
   let lastError: Error | undefined;
   let attempt = 0;
-  
+
   while (attempt <= fullConfig.maxRetries) {
     try {
       return await fn();
     } catch (error) {
       lastError = error as Error;
       attempt++;
-      
+
       if (!shouldRetry(lastError, attempt, fullConfig)) {
         throw lastError;
       }
-      
+
       const delay = calculateDelay(
         attempt,
         fullConfig.retryDelay,
         fullConfig.retryBackoff,
         fullConfig.maxRetryDelay
       );
-      
+
       await sleep(delay);
     }
   }
-  
+
   throw lastError;
 }
 

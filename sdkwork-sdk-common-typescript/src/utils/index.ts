@@ -9,11 +9,11 @@ export { StringUtils, EMPTY_STRING, SPACE, DASH, UNDERSCORE, DOT, SLASH, BACKSLA
 export { Encoding } from './encoding';
 
 export type { TimeUnit, DateFormat, DateComponents, Duration } from './date';
-export { 
-  MILLISECONDS_IN_SECOND, 
-  MILLISECONDS_IN_MINUTE, 
-  MILLISECONDS_IN_HOUR, 
-  MILLISECONDS_IN_DAY, 
-  MILLISECONDS_IN_WEEK, 
-  TIME_UNITS_IN_MS 
+export {
+  MILLISECONDS_IN_SECOND,
+  MILLISECONDS_IN_MINUTE,
+  MILLISECONDS_IN_HOUR,
+  MILLISECONDS_IN_DAY,
+  MILLISECONDS_IN_WEEK,
+  TIME_UNITS_IN_MS
 } from './date';

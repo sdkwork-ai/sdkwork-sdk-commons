@@ -32,21 +32,21 @@ export class ConsoleLogger implements Logger {
 
   private formatMessage(level: LogLevel, message: string): string {
     const parts: string[] = [];
-    
+
     if (this.timestamp) {
       parts.push(new Date().toISOString());
     }
-    
+
     parts.push(this.prefix);
     parts.push(`[${level.toUpperCase()}]`);
     parts.push(message);
-    
+
     return parts.join(' ');
   }
 
   private getColorCode(level: LogLevel): string {
     if (!this.colors) return '';
-    
+
     const colors: Record<LogLevel, string> = {
       debug: '\x1b[36m',
       info: '\x1b[32m',
@@ -54,7 +54,7 @@ export class ConsoleLogger implements Logger {
       error: '\x1b[31m',
       silent: '',
     };
-    
+
     return colors[level];
   }
 

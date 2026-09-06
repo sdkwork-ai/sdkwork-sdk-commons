@@ -6,43 +6,43 @@ export namespace Encoding {
     } else {
       bytes = input;
     }
-    
+
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     let result = '';
     let i = 0;
-    
+
     while (i < bytes.length) {
       const a = bytes[i++] ?? 0;
       const b = i < bytes.length ? (bytes[i++] ?? 0) : 0;
       const c = i < bytes.length ? (bytes[i++] ?? 0) : 0;
-      
+
       const bitmap = (a << 16) | (b << 8) | c;
-      
+
       result += chars[(bitmap >> 18) & 63];
       result += chars[(bitmap >> 12) & 63];
       result += i > bytes.length + 1 ? '=' : chars[(bitmap >> 6) & 63];
       result += i > bytes.length ? '=' : chars[bitmap & 63];
     }
-    
+
     return result;
   }
 
   export function base64Decode(input: string): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     input = input.replace(/[^A-Za-z0-9+/]/g, '');
-    
+
     const len = input.length;
     let result = '';
     let i = 0;
-    
+
     while (i < len) {
       const a = chars.indexOf(input[i++] ?? '');
       const b = chars.indexOf(input[i++] ?? '');
       const c = chars.indexOf(input[i++] ?? '');
       const d = chars.indexOf(input[i++] ?? '');
-      
+
       const bitmap = (a << 18) | (b << 12) | (c << 6) | d;
-      
+
       result += String.fromCharCode((bitmap >> 16) & 255);
       if (c !== 64 && input[i - 2] !== '=') {
         result += String.fromCharCode((bitmap >> 8) & 255);
@@ -51,7 +51,7 @@ export namespace Encoding {
         result += String.fromCharCode(bitmap & 255);
       }
     }
-    
+
     return result;
   }
 
@@ -152,7 +152,7 @@ export namespace Encoding {
       '`': '&#x60;',
       '=': '&#x3D;'
     };
-    
+
     return input.replace(/[&<>"'`=/]/g, char => htmlEntities[char] || char);
   }
 
@@ -169,7 +169,7 @@ export namespace Encoding {
       '&#x3D;': '=',
       '&nbsp;': ' '
     };
-    
+
     return input.replace(/&[^;]+;/g, entity => htmlEntities[entity] || entity);
   }
 
@@ -210,7 +210,7 @@ export namespace Encoding {
       '"': '&quot;',
       "'": '&apos;'
     };
-    
+
     return input.replace(/[&<>"']/g, char => xmlEntities[char] || char);
   }
 
@@ -222,7 +222,7 @@ export namespace Encoding {
       '&quot;': '"',
       '&apos;': "'"
     };
-    
+
     return input.replace(/&[^;]+;/g, entity => xmlEntities[entity] || entity);
   }
 
@@ -411,11 +411,11 @@ export namespace Encoding {
     const inputBytes = utf8Encode(input);
     const keyBytes = utf8Encode(key);
     const result = new Uint8Array(inputBytes.length);
-    
+
     for (let i = 0; i < inputBytes.length; i++) {
       result[i] = (inputBytes[i] ?? 0) ^ (keyBytes[i % keyBytes.length] ?? 0);
     }
-    
+
     return bytesToHex(result);
   }
 
@@ -423,11 +423,11 @@ export namespace Encoding {
     const inputBytes = hexToBytes(input);
     const keyBytes = utf8Encode(key);
     const result = new Uint8Array(inputBytes.length);
-    
+
     for (let i = 0; i < inputBytes.length; i++) {
       result[i] = (inputBytes[i] ?? 0) ^ (keyBytes[i % keyBytes.length] ?? 0);
     }
-    
+
     return utf8Decode(result);
   }
 
@@ -483,14 +483,14 @@ export namespace Encoding {
     if (input.startsWith(prefix)) {
       return input;
     }
-    
+
     const asciiPart = input.replace(/[^\x00-\x7F]/g, '');
     const nonAsciiPart = input.replace(/[\x00-\x7F]/g, '');
-    
+
     if (!nonAsciiPart) {
       return input;
     }
-    
+
     return prefix + asciiPart + '-' + nonAsciiPart.split('').map(c => c.charCodeAt(0).toString(36)).join('');
   }
 
@@ -523,13 +523,13 @@ export namespace Encoding {
 
   export function queryStringDecode(query: string): Record<string, string | string[]> {
     const result: Record<string, string | string[]> = {};
-    
+
     if (!query) {
       return result;
     }
-    
+
     query = query.replace(/^[?#]/, '');
-    
+
     for (const pair of query.split('&')) {
       const parts = pair.split('=');
       const key = parts[0];
@@ -537,7 +537,7 @@ export namespace Encoding {
       if (!key) continue;
       const decodedKey = urlDecode(key);
       const decodedValue = value ? urlDecode(value) : '';
-      
+
       if (result[decodedKey]) {
         if (Array.isArray(result[decodedKey])) {
           (result[decodedKey] as string[]).push(decodedValue);
@@ -548,7 +548,7 @@ export namespace Encoding {
         result[decodedKey] = decodedValue;
       }
     }
-    
+
     return result;
   }
 
@@ -600,7 +600,7 @@ export namespace Encoding {
       'video/x-msvideo': 'avi',
       'video/quicktime': 'mov'
     };
-    
+
     return mimeMap[mimeType.toLowerCase()] || '';
   }
 
@@ -648,7 +648,7 @@ export namespace Encoding {
       'avi': 'video/x-msvideo',
       'mov': 'video/quicktime'
     };
-    
+
     return extMap[extension.toLowerCase().replace(/^\./, '')] || 'application/octet-stream';
   }
 
@@ -719,11 +719,11 @@ export namespace Encoding {
     if (input.charCodeAt(0) === 0xfeff && input.charCodeAt(1) === 0x0000) {
       return 'utf-16be';
     }
-    
+
     if (/[\u4e00-\u9fa5]/.test(input)) {
       return 'utf-8';
     }
-    
+
     return 'ascii';
   }
 }

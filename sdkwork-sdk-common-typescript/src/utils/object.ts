@@ -130,7 +130,7 @@ export function clone<T>(obj: T): T {
   if (obj instanceof Map) return new Map(obj) as T;
   if (obj instanceof Set) return new Set(obj) as T;
   if (obj instanceof RegExp) return new RegExp(obj) as T;
-  
+
   const result: Record<string, unknown> = {};
   for (const key of Object.keys(obj)) {
     result[key] = clone((obj as Record<string, unknown>)[key]);
@@ -431,7 +431,7 @@ export function assign<T extends object, U extends object>(target: T, ...sources
 
 export function assignIn<T extends object, U extends object>(target: T, ...sources: U[]): T & U {
   const result = { ...target } as Record<string, unknown>;
-  
+
   for (const source of sources) {
     let current: object | null = source;
     while (current !== null && current !== Object.prototype) {
@@ -443,7 +443,7 @@ export function assignIn<T extends object, U extends object>(target: T, ...sourc
       current = Object.getPrototypeOf(current);
     }
   }
-  
+
   return result as T & U;
 }
 
@@ -453,13 +453,13 @@ export function assignWith<T extends object, U extends object>(
   customizer: (objValue: unknown, srcValue: unknown, key: string, target: T, source: U) => unknown
 ): T & U {
   const result = { ...target } as Record<string, unknown>;
-  
+
   for (const key of Object.keys(source)) {
     const objValue = result[key];
     const srcValue = (source as Record<string, unknown>)[key];
     result[key] = customizer(objValue, srcValue, key, target, source);
   }
-  
+
   return result as T & U;
 }
 
@@ -485,25 +485,25 @@ export function mergeWith<T extends object, U extends object>(
   customizer: (objValue: unknown, srcValue: unknown, key: string, target: T, source: U) => unknown
 ): T & U {
   const result = { ...target } as Record<string, unknown>;
-  
+
   for (const key of Object.keys(source)) {
     const objValue = result[key];
     const srcValue = (source as Record<string, unknown>)[key];
-    
+
     if (isPlainObject(objValue) && isPlainObject(srcValue)) {
       result[key] = mergeWith(objValue as Record<string, unknown>, srcValue as Record<string, unknown>, customizer as never);
     } else {
       result[key] = customizer(objValue, srcValue, key, target, source) ?? srcValue;
     }
   }
-  
+
   return result as T & U;
 }
 
 export function toPlainObject<T extends object>(obj: T): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   let current: object | null = obj;
-  
+
   while (current !== null && current !== Object.prototype) {
     for (const key of Object.keys(current)) {
       if (!(key in result)) {
@@ -512,7 +512,7 @@ export function toPlainObject<T extends object>(obj: T): Record<string, unknown>
     }
     current = Object.getPrototypeOf(current);
   }
-  
+
   return result;
 }
 

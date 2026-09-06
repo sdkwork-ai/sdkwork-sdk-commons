@@ -27,16 +27,16 @@ export class MemoryCacheStore implements CacheStore {
 
   get<T>(key: string): T | null {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return null;
     }
-    
+
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return entry.value as T;
   }
 
@@ -44,7 +44,7 @@ export class MemoryCacheStore implements CacheStore {
     if (this.cache.size >= this.maxSize) {
       this.evictOldest();
     }
-    
+
     const expiresAt = Date.now() + (ttl ?? this.defaultTtl);
     this.cache.set(key, { value, expiresAt });
   }
@@ -52,12 +52,12 @@ export class MemoryCacheStore implements CacheStore {
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-    
+
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -76,14 +76,14 @@ export class MemoryCacheStore implements CacheStore {
   private evictOldest(): void {
     let oldestKey: string | null = null;
     let oldestTime = Infinity;
-    
+
     for (const [key, entry] of this.cache) {
       if (entry.expiresAt < oldestTime) {
         oldestTime = entry.expiresAt;
         oldestKey = key;
       }
     }
-    
+
     if (oldestKey) {
       this.cache.delete(oldestKey);
     }
@@ -101,6 +101,6 @@ export function generateCacheKey(config: RequestConfig): string {
     JSON.stringify(config.params ?? {}),
     JSON.stringify(config.body ?? {}),
   ];
-  
+
   return parts.join(':');
 }

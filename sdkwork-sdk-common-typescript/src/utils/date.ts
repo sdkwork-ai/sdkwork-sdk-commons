@@ -460,7 +460,7 @@ export function addYears(date: Date, amount: number): Date {
 
 export function add(date: Date, duration: Duration): Date {
   let result = new Date(date);
-  
+
   if (duration.milliseconds) result = addMilliseconds(result, duration.milliseconds);
   if (duration.seconds) result = addSeconds(result, duration.seconds);
   if (duration.minutes) result = addMinutes(result, duration.minutes);
@@ -469,7 +469,7 @@ export function add(date: Date, duration: Duration): Date {
   if (duration.weeks) result = addWeeks(result, duration.weeks);
   if (duration.months) result = addMonths(result, duration.months);
   if (duration.years) result = addYears(result, duration.years);
-  
+
   return result;
 }
 
@@ -483,7 +483,7 @@ export function subtract(date: Date, duration: Duration): Date {
 
 export function diff(date1: Date, date2: Date, unit: TimeUnit = 'millisecond'): number {
   const diffMs = date1.getTime() - date2.getTime();
-  
+
   switch (unit) {
     case 'millisecond':
       return diffMs;
@@ -588,7 +588,7 @@ export function formatRelative(date: Date, base: Date = new Date()): string {
 
 export function formatDuration(duration: Duration): string {
   const parts: string[] = [];
-  
+
   if (duration.years) parts.push(`${duration.years}y`);
   if (duration.months) parts.push(`${duration.months}mo`);
   if (duration.weeks) parts.push(`${duration.weeks}w`);
@@ -597,7 +597,7 @@ export function formatDuration(duration: Duration): string {
   if (duration.minutes) parts.push(`${duration.minutes}m`);
   if (duration.seconds) parts.push(`${duration.seconds}s`);
   if (duration.milliseconds) parts.push(`${duration.milliseconds}ms`);
-  
+
   return parts.join(' ') || '0ms';
 }
 
@@ -698,7 +698,7 @@ export function eachYear(start: Date, end: Date): Date[] {
 
 export function closestTo(date: Date, dates: Date[]): Date | null {
   if (dates.length === 0) return null;
-  
+
   const diffMs = date.getTime();
   let closest = dates[0]!;
   let minDiff = Math.abs(diffMs - closest.getTime());
@@ -769,11 +769,11 @@ export function lastDayOfMonth(year: number, month: number, dayOfWeek: number): 
 export function age(birthDate: Date, referenceDate: Date = new Date()): number {
   let age = referenceDate.getFullYear() - birthDate.getFullYear();
   const monthDiff = referenceDate.getMonth() - birthDate.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < birthDate.getDate())) {
     age--;
   }
-  
+
   return age;
 }
 

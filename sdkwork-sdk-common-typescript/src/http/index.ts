@@ -1,7 +1,7 @@
-export { 
-  BaseHttpClient, 
+export {
+  BaseHttpClient,
   createBaseHttpClient,
-  type HttpClientOptions, 
+  type HttpClientOptions,
   type HttpClientAuthConfig,
   type RequestExecutor,
   type ResponseProcessor,
