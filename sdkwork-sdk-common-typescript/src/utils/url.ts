@@ -167,6 +167,12 @@ export function resolveBaseUrl(
     protocol?: string;
     /** Runtime env accessor; defaults to {@link readRuntimeEnv}. */
     readEnv?: (key: string) => string | undefined;
+    /**
+     * When `true`, keep the candidate's pathname/search/hash (e.g. a base URL
+     * already ending in `/app/v3/api`). When `false` (default) the returned URL
+     * is reduced to its base origin `scheme://host[:port]`.
+     */
+    preservePath?: boolean;
   } = {},
 ): BaseUrlResolution {
   const candidates = options.baseUrls
@@ -184,6 +190,7 @@ export function resolveBaseUrl(
   const environmentLabel = getEnvironmentLabel(currentHost);
   const brand = getBrand(currentHost);
   const expectedApiHost = getApiHostForEnvironment(environmentLabel, brand);
+  const normalizeCandidate = options.preservePath ? removeTrailingSlash : toBaseOrigin;
 
   // Pass 1: same environment + brand + same protocol.
   const sameProtocol = candidates.find((candidate) => {
@@ -195,17 +202,17 @@ export function resolveBaseUrl(
     );
   });
   if (sameProtocol) {
-    return { url: toBaseOrigin(sameProtocol), reason: 'current-host-match' };
+    return { url: normalizeCandidate(sameProtocol), reason: 'current-host-match' };
   }
 
   // Pass 2: same environment + brand, any protocol.
   const anyProtocol = candidates.find((candidate) => getHostname(candidate) === expectedApiHost);
   if (anyProtocol) {
-    return { url: toBaseOrigin(anyProtocol), reason: 'current-host-match' };
+    return { url: normalizeCandidate(anyProtocol), reason: 'current-host-match' };
   }
 
   // Fallback: first candidate.
-  return { url: toBaseOrigin(candidates[0] ?? ''), reason: 'fallback-first' };
+  return { url: normalizeCandidate(candidates[0] ?? ''), reason: 'fallback-first' };
 }
 
 /**

@@ -127,6 +127,27 @@ test('resolveBaseUrl matches production host without env suffix', () => {
   assert.equal(result.reason, 'current-host-match');
 });
 
+test('resolveBaseUrl preserves path when preservePath is set', () => {
+  const result = resolveBaseUrl({
+    baseUrls: 'https://api-dev.sdkwork.com/app/v3/api,http://api-dev.sdkwork.com/app/v3/api',
+    hostname: 'im-dev.sdkwork.com',
+    protocol: 'https',
+    preservePath: true,
+  });
+  assert.equal(result.url, 'https://api-dev.sdkwork.com/app/v3/api');
+  assert.equal(result.reason, 'current-host-match');
+});
+
+test('resolveBaseUrl drops the path by default (base origin)', () => {
+  const result = resolveBaseUrl({
+    baseUrls: 'https://api-dev.sdkwork.com/app/v3/api,http://api-dev.sdkwork.com/app/v3/api',
+    hostname: 'im-dev.sdkwork.com',
+    protocol: 'https',
+  });
+  assert.equal(result.url, 'https://api-dev.sdkwork.com');
+  assert.equal(result.reason, 'current-host-match');
+});
+
 test('readRuntimeEnv reads from a Node-like process.env', () => {
   // Simulate a process.env object on globalThis for the lookup.
   const originalProcess = (globalThis).process;
