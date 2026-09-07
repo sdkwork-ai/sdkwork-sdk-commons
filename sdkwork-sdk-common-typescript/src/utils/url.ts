@@ -97,6 +97,12 @@ export function getEnvironmentLabel(hostname: string): string {
   if (!host) {
     return 'development';
   }
+  // Localhost / loopback / private ranges are treated as a local development
+  // environment regardless of any suffix. These helpers accept either a full
+  // URL or a bare hostname.
+  if (isLocalhost(host) || isIpAddress(host)) {
+    return 'development';
+  }
   for (const { label, suffix } of ENV_SUFFIXES) {
     // Match `-dev` / `-test` / `-staging` only as a full label boundary
     // (e.g. `im-dev`, `api-test`), not inside a longer token.
@@ -189,17 +195,34 @@ export function resolveBaseUrl(
     );
   });
   if (sameProtocol) {
-    return { url: removeTrailingSlash(sameProtocol), reason: 'current-host-match' };
+    return { url: toBaseOrigin(sameProtocol), reason: 'current-host-match' };
   }
 
   // Pass 2: same environment + brand, any protocol.
   const anyProtocol = candidates.find((candidate) => getHostname(candidate) === expectedApiHost);
   if (anyProtocol) {
-    return { url: removeTrailingSlash(anyProtocol), reason: 'current-host-match' };
+    return { url: toBaseOrigin(anyProtocol), reason: 'current-host-match' };
   }
 
   // Fallback: first candidate.
-  return { url: removeTrailingSlash(candidates[0] ?? ''), reason: 'fallback-first' };
+  return { url: toBaseOrigin(candidates[0] ?? ''), reason: 'fallback-first' };
+}
+
+/**
+ * Reduce an absolute URL to its base origin (`scheme://host[:port]`), dropping
+ * any pathname/search/hash and any trailing slash. This is the shape callers
+ * append module paths to (`<base>/app/v3/...`).
+ */
+function toBaseOrigin(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.origin;
+  } catch {
+    return url.replace(/\/+$/, '');
+  }
 }
 
 function getCurrentHostname(): string {
@@ -631,15 +654,27 @@ export function extractDomainWithTld(url: string): string {
 }
 
 export function isLocalhost(url: string): boolean {
-  const hostname = getHostname(url).toLowerCase();
+  const hostname = hostnameOf(url).toLowerCase();
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.');
 }
 
 export function isIpAddress(url: string): boolean {
-  const hostname = getHostname(url);
+  const hostname = hostnameOf(url);
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
   const ipv6Regex = /^\[?([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\]?$/;
   return ipv4Regex.test(hostname) || ipv6Regex.test(hostname);
+}
+
+/**
+ * Resolve the hostname of either a full URL or a bare hostname value. Bare
+ * hostnames (no scheme) are returned unchanged so callers can test IPs and
+ * `localhost` without an absolute URL.
+ */
+function hostnameOf(url: string): string {
+  if (isAbsolute(url)) {
+    return getHostname(url);
+  }
+  return url;
 }
 
 export function encode(url: string): string {

@@ -77,12 +77,14 @@ test('resolveBaseUrl matches env+brand regardless of order in the list', () => {
 });
 
 test('resolveBaseUrl falls back to the first candidate when nothing matches', () => {
+  // No candidate has the api-dev.sdkwork.com host for the current im-dev page,
+  // so the first candidate wins as a fallback.
   const result = resolveBaseUrl({
-    baseUrls: 'https://api-dev.sdkwork.com,http://api-staging.sdkwork.com',
+    baseUrls: 'https://api-test.sdkwork.com,http://api-staging.sdkwork.com',
     hostname: 'im-dev.sdkwork.com',
     protocol: 'https',
   });
-  assert.equal(result.url, 'https://api-dev.sdkwork.com');
+  assert.equal(result.url, 'https://api-test.sdkwork.com');
   assert.equal(result.reason, 'fallback-first');
 });
 
