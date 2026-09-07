@@ -148,6 +148,26 @@ test('resolveBaseUrl drops the path by default (base origin)', () => {
   assert.equal(result.reason, 'current-host-match');
 });
 
+test('resolveBaseUrl derives the api host from the current host when no candidates', () => {
+  const result = resolveBaseUrl({
+    baseUrls: '',
+    hostname: 'im-dev.sdkwork.com',
+    protocol: 'https',
+  });
+  assert.equal(result.url, 'https://api-dev.sdkwork.com');
+  assert.equal(result.reason, 'current-host-match');
+});
+
+test('resolveBaseUrl derives the http api host for an http page with no candidates', () => {
+  const result = resolveBaseUrl({
+    baseUrls: '',
+    hostname: 'im-test.sdkwork.com',
+    protocol: 'http',
+  });
+  assert.equal(result.url, 'http://api-test.sdkwork.com');
+  assert.equal(result.reason, 'current-host-match');
+});
+
 test('readRuntimeEnv reads from a Node-like process.env', () => {
   // Simulate a process.env object on globalThis for the lookup.
   const originalProcess = (globalThis).process;

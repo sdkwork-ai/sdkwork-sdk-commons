@@ -181,16 +181,23 @@ export function resolveBaseUrl(
         (options.readEnv ?? readRuntimeEnv)(options.envKey ?? DEFAULT_BASE_URL_ENV_KEY) ?? '',
       );
 
-  if (candidates.length === 0) {
-    return { url: '', reason: 'empty' };
-  }
-
   const currentHost = options.hostname ?? getCurrentHostname();
   const currentProtocol = options.protocol ?? getCurrentProtocol();
   const environmentLabel = getEnvironmentLabel(currentHost);
   const brand = getBrand(currentHost);
   const expectedApiHost = getApiHostForEnvironment(environmentLabel, brand);
   const normalizeCandidate = options.preservePath ? removeTrailingSlash : toBaseOrigin;
+
+  if (candidates.length === 0) {
+    // No configured candidates: derive the API host from the current page's
+    // environment + brand and the current protocol, so callers still get a
+    // working base URL without any env configuration.
+    if (currentHost && expectedApiHost) {
+      const derived = `${currentProtocol}://${expectedApiHost}`;
+      return { url: derived, reason: 'current-host-match' };
+    }
+    return { url: '', reason: 'empty' };
+  }
 
   // Pass 1: same environment + brand + same protocol.
   const sameProtocol = candidates.find((candidate) => {
