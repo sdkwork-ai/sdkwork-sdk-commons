@@ -61,11 +61,18 @@ export {
   sleep,
   calculateDelay,
   createRetryConfig,
+  resolveBaseUrl,
+  readRuntimeEnv,
+  splitBaseUrls,
+  getEnvironmentLabel,
+  getBrand,
+  getApiHostForEnvironment,
 } from './utils/index';
 
 export type {
   Logger,
   CacheStore,
+  BaseUrlResolution,
 } from './utils/index';
 
 export {

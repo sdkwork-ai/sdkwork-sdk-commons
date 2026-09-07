@@ -11,6 +11,211 @@ export interface UrlComponents {
   href: string;
 }
 
+/**
+ * Result of {@link resolveBaseUrl}. Carries both the chosen base URL and the
+ * reason it was selected so callers can log/debug which candidate won.
+ */
+export interface BaseUrlResolution {
+  /** The selected absolute base URL (trailing slash removed). */
+  url: string;
+  /**
+   * How the selection was made:
+   * - `current-host-match`: matched a configured API host for the current
+   *   page's environment + brand, preferring the same protocol.
+   * - `fallback-first`: no matching host found; returned the first candidate.
+   * - `empty`: no candidates were available.
+   */
+  reason: 'current-host-match' | 'fallback-first' | 'empty';
+}
+
+/** Namespace under which runtime env variables are looked up. */
+export type BaseUrlRuntimeEnv = Record<string, unknown>;
+
+const DEFAULT_BASE_URL_ENV_KEY = 'SDKWORK_API_BASE_URL';
+
+/**
+ * Environment suffixes that map a hostname like `im-dev.sdkwork.com` onto an
+ * environment label (`dev`). The bare hostname (no env suffix) is treated as
+ * production. Values are stored lower-case.
+ */
+const ENV_SUFFIXES: ReadonlyArray<{ label: string; suffix: string }> = [
+  { label: 'dev', suffix: '-dev' },
+  { label: 'test', suffix: '-test' },
+  { label: 'staging', suffix: '-staging' },
+];
+
+/**
+ * Read a runtime environment variable across Vite (`import.meta.env`),
+ * Node (`process.env`) and generic runtimes. Returns `undefined` when neither
+ * source is available or the key is unset.
+ */
+export function readRuntimeEnv(key: string): string | undefined {
+  // Vite / bundler-injected env (import.meta.env). We access it dynamically to
+  // stay tree-shakeable and avoid hard-coupling the package to Vite.
+  const viteEnv = (globalThis as Record<string, unknown>)['import' + '.meta'] as
+    | { env?: Record<string, unknown> }
+    | undefined;
+  const viteValue = viteEnv?.env?.[key];
+  if (typeof viteValue === 'string' && viteValue.length > 0) {
+    return viteValue;
+  }
+
+  // Node / process-based runtime.
+  const processEnv = (globalThis as Record<string, unknown>)['process'] as
+    | { env?: Record<string, unknown> }
+    | undefined;
+  const processValue = processEnv?.env?.[key];
+  if (typeof processValue === 'string' && processValue.length > 0) {
+    return processValue;
+  }
+
+  return undefined;
+}
+
+/**
+ * Split a base-url configuration value on commas or semicolons, trimming and
+ * dropping empty entries. Accepts either a raw string or an already-split
+ * array.
+ */
+export function splitBaseUrls(value: string | readonly string[]): string[] {
+  const raw = typeof value === 'string' ? value : value.join(',');
+  return raw
+    .split(/[,;]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+/**
+ * Extract the environment label embedded in a hostname.
+ *
+ * `im-dev.sdkwork.com` -> `dev`, `api-test.birdcoder.cn` -> `test`,
+ * `server.sdkwork.com` -> `production` (no env suffix), and a bare
+ * `localhost`/IP returns `development`.
+ */
+export function getEnvironmentLabel(hostname: string): string {
+  const host = (hostname || '').toLowerCase();
+  if (!host) {
+    return 'development';
+  }
+  for (const { label, suffix } of ENV_SUFFIXES) {
+    // Match `-dev` / `-test` / `-staging` only as a full label boundary
+    // (e.g. `im-dev`, `api-test`), not inside a longer token.
+    if (host.includes(suffix + '.')) {
+      return label;
+    }
+  }
+  return 'production';
+}
+
+/**
+ * Extract the registrable brand (eTLD+1) from a hostname, e.g.
+ * `api-dev.sdkwork.com` -> `sdkwork.com`. Falls back to the full hostname when
+ * it has fewer than two labels.
+ */
+export function getBrand(hostname: string): string {
+  const host = (hostname || '').toLowerCase();
+  const parts = host.split('.').filter((p) => p.length > 0);
+  if (parts.length < 2) {
+    return host || '';
+  }
+  return parts.slice(-2).join('.');
+}
+
+/**
+ * Build the expected API host for a given environment label and brand, e.g.
+ * (`dev`, `sdkwork.com`) -> `api-dev.sdkwork.com`, (`production`,
+ * `sdkwork.com`) -> `api.sdkwork.com`.
+ */
+export function getApiHostForEnvironment(environmentLabel: string, brand: string): string {
+  const env = environmentLabel.toLowerCase();
+  const prefix = env === 'production' ? 'api.' : `api-${env}.`;
+  const cleanBrand = brand.toLowerCase().replace(/^\.+|\.+$/g, '');
+  return `${prefix}${cleanBrand}`;
+}
+
+/**
+ * Resolve the SDK base URL for the current page/process.
+ *
+ * Reads the configured base-url list from runtime env (default key
+ * `SDKWORK_API_BASE_URL`, overridable via `options.envKey`). The value may
+ * contain several candidates separated by commas or semicolons.
+ *
+ * Selection strategy:
+ * 1. Extract the current page's environment label and brand from
+ *    `window.location.hostname` (or `options.hostname`).
+ * 2. Prefer a candidate whose API host matches the current environment +
+ *    brand (e.g. current `im-dev.sdkwork.com` -> `api-dev.sdkwork.com`),
+ *    giving priority to the candidate that also matches the current protocol
+ *    (`https` page -> `https://api-*`, `http` page -> `http://api-*`).
+ * 3. If none matches, fall back to the first candidate.
+ */
+export function resolveBaseUrl(
+  options: {
+    /** Raw base-url configuration. Defaults to reading `SDKWORK_API_BASE_URL`. */
+    baseUrls?: string | readonly string[];
+    /** Override the runtime env key used when `baseUrls` is omitted. */
+    envKey?: string;
+    /** Override the current hostname (for tests/SSR); defaults to the window host. */
+    hostname?: string;
+    /** Override the current protocol (for tests/SSR); defaults to the window protocol. */
+    protocol?: string;
+    /** Runtime env accessor; defaults to {@link readRuntimeEnv}. */
+    readEnv?: (key: string) => string | undefined;
+  } = {},
+): BaseUrlResolution {
+  const candidates = options.baseUrls
+    ? splitBaseUrls(options.baseUrls)
+    : splitBaseUrls(
+        (options.readEnv ?? readRuntimeEnv)(options.envKey ?? DEFAULT_BASE_URL_ENV_KEY) ?? '',
+      );
+
+  if (candidates.length === 0) {
+    return { url: '', reason: 'empty' };
+  }
+
+  const currentHost = options.hostname ?? getCurrentHostname();
+  const currentProtocol = options.protocol ?? getCurrentProtocol();
+  const environmentLabel = getEnvironmentLabel(currentHost);
+  const brand = getBrand(currentHost);
+  const expectedApiHost = getApiHostForEnvironment(environmentLabel, brand);
+
+  // Pass 1: same environment + brand + same protocol.
+  const sameProtocol = candidates.find((candidate) => {
+    const host = getHostname(candidate);
+    const protocol = getProtocol(candidate);
+    return (
+      host === expectedApiHost &&
+      protocol.toLowerCase() === currentProtocol.toLowerCase()
+    );
+  });
+  if (sameProtocol) {
+    return { url: removeTrailingSlash(sameProtocol), reason: 'current-host-match' };
+  }
+
+  // Pass 2: same environment + brand, any protocol.
+  const anyProtocol = candidates.find((candidate) => getHostname(candidate) === expectedApiHost);
+  if (anyProtocol) {
+    return { url: removeTrailingSlash(anyProtocol), reason: 'current-host-match' };
+  }
+
+  // Fallback: first candidate.
+  return { url: removeTrailingSlash(candidates[0] ?? ''), reason: 'fallback-first' };
+}
+
+function getCurrentHostname(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    return window.location.hostname;
+  }
+  return '';
+}
+
+function getCurrentProtocol(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    return window.location.protocol.replace(':', '');
+  }
+  return 'https';
+}
+
 export interface QueryParams {
   [key: string]: string | string[] | undefined;
 }
