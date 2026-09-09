@@ -460,6 +460,40 @@ export function resolveBaseUrl(
 }
 
 /**
+ * Align an absolute http(s) base URL's scheme with the current page protocol
+ * (ENVIRONMENT_SPEC.md §6.3 protocol adaptation). The serving edge terminates
+ * HTTP and HTTPS on the same API host, so an http:// page must target the
+ * http:// origin (a TLS-less dev edge closes https:// connections) and an
+ * https:// page must target https:// (mixed-content blocks). Host, port, and
+ * path are preserved; the trailing slash of a rewritten URL is removed.
+ *
+ * Non-absolute values, non-http(s) schemes, and server/native runtimes
+ * (without a window) are returned unchanged. Use `options.protocol` to pin the
+ * page protocol explicitly (mini-programs, SSR, tests).
+ */
+export function alignBaseUrlToPageProtocol(
+  url: string,
+  options: { protocol?: string } = {},
+): string {
+  const pageProtocol = (
+    options.protocol ?? getCurrentProtocol()
+  ).replace(/:$/u, '').toLowerCase() || 'https';
+  const aligned = alignCandidateProtocol(url, pageProtocol);
+  if (aligned === url) {
+    return url;
+  }
+  try {
+    const parsed = new URL(aligned);
+    if (parsed.pathname === '/' && !parsed.search && !parsed.hash) {
+      return parsed.origin;
+    }
+    return parsed.toString().replace(/\/$/u, '');
+  } catch {
+    return aligned;
+  }
+}
+
+/**
  * Rewrite an absolute http(s) candidate's protocol to the current page
  * protocol. Only the scheme changes: host, port, path and query are kept.
  * Non-absolute candidates, non-http(s) candidates and non-http(s) current

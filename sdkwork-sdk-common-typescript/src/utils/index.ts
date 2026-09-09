@@ -109,11 +109,21 @@ export {
   getEnvironmentLabel,
   getBrand,
   getApiHostForEnvironment,
+  resolveApiHost,
+  resolveApiPort,
+  resolveDeploymentMode,
+  normalizeDeploymentMode,
   resolveBaseUrl,
+  alignBaseUrlToPageProtocol,
+  CLOUD_GATEWAY_DEV_PORT,
+  DEPLOYMENT_MODE_ENV_KEYS,
+  DEV_PORT_ENV_KEY,
+  DEVELOPMENT_ENVIRONMENT_LABEL,
 } from './url';
 export type {
   UrlComponents,
   QueryParams,
   BaseUrlResolution,
   BaseUrlRuntimeEnv,
+  DeploymentMode,
 } from './url';

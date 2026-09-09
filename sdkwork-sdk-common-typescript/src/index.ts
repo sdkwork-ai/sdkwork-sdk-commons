@@ -62,17 +62,27 @@ export {
   calculateDelay,
   createRetryConfig,
   resolveBaseUrl,
+  alignBaseUrlToPageProtocol,
   readRuntimeEnv,
   splitBaseUrls,
   getEnvironmentLabel,
   getBrand,
   getApiHostForEnvironment,
+  resolveApiHost,
+  resolveApiPort,
+  resolveDeploymentMode,
+  normalizeDeploymentMode,
+  CLOUD_GATEWAY_DEV_PORT,
+  DEPLOYMENT_MODE_ENV_KEYS,
+  DEV_PORT_ENV_KEY,
+  DEVELOPMENT_ENVIRONMENT_LABEL,
 } from './utils/index';
 
 export type {
   Logger,
   CacheStore,
   BaseUrlResolution,
+  DeploymentMode,
 } from './utils/index';
 
 export {

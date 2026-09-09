@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   resolveBaseUrl,
+  alignBaseUrlToPageProtocol,
   readRuntimeEnv,
   splitBaseUrls,
   getEnvironmentLabel,
@@ -397,4 +398,28 @@ test('resolveBaseUrl leaves non-http(s) candidates unchanged', () => {
   });
   assert.equal(result.url, 'ws://api-dev.sdkwork.com');
   assert.equal(result.reason, 'current-host-match');
+});
+
+test('alignBaseUrlToPageProtocol follows the page scheme in the browser', () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = { location: { protocol: 'http:', hostname: 'im-dev.sdkwork.com' } };
+  try {
+    assert.equal(alignBaseUrlToPageProtocol('https://api-dev.sdkwork.com'), 'http://api-dev.sdkwork.com');
+    assert.equal(alignBaseUrlToPageProtocol('https://api-dev.sdkwork.com/app/v3/api'), 'http://api-dev.sdkwork.com/app/v3/api');
+    assert.equal(alignBaseUrlToPageProtocol('http://api-dev.sdkwork.com'), 'http://api-dev.sdkwork.com');
+    globalThis.window = { location: { protocol: 'https:', hostname: 'im-dev.sdkwork.com' } };
+    assert.equal(alignBaseUrlToPageProtocol('http://api-dev.sdkwork.com'), 'https://api-dev.sdkwork.com');
+    // Non-http(s) schemes and relative values are returned unchanged.
+    assert.equal(alignBaseUrlToPageProtocol('ws://api-dev.sdkwork.com'), 'ws://api-dev.sdkwork.com');
+    assert.equal(alignBaseUrlToPageProtocol('/v1'), '/v1');
+    // Explicit protocol pin (mini-programs / SSR) works without a window.
+    delete globalThis.window;
+    assert.equal(alignBaseUrlToPageProtocol('https://api-dev.sdkwork.com', { protocol: 'http:' }), 'http://api-dev.sdkwork.com');
+  } finally {
+    if (originalWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = originalWindow;
+    }
+  }
 });
