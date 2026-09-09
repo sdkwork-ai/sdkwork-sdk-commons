@@ -20,18 +20,66 @@ export interface BaseUrlResolution {
   url: string;
   /**
    * How the selection was made:
-   * - `current-host-match`: matched a configured API host for the current
-   *   page's environment + brand, preferring the same protocol.
-   * - `fallback-first`: no matching host found; returned the first candidate.
-   * - `empty`: no candidates were available.
+   * - `current-host-match`: matched a configured candidate for the current
+   *   page's environment + brand + deployment mode, preferring the same
+   *   protocol.
+   * - `development-local-candidate`: local `pnpm dev` page with an explicitly
+   *   configured local (localhost/IP) candidate, which wins over derivation.
+   * - `derived-from-host`: no candidate matched; the base URL was derived from
+   *   the current host, environment and deployment mode.
+   * - `fallback-first`: no candidate matched and no host was available to
+   *   derive from; the first candidate was returned.
+   * - `empty`: no candidates were available and nothing could be derived.
    */
-  reason: 'current-host-match' | 'fallback-first' | 'empty';
+  reason:
+    | 'current-host-match'
+    | 'development-local-candidate'
+    | 'derived-from-host'
+    | 'fallback-first'
+    | 'empty';
+  /** Deployment mode the resolution was performed in. */
+  mode: DeploymentMode;
+  /** Environment label derived from the current host. */
+  environment: string;
+  /** Host the resolved base URL points at (empty when unresolved). */
+  host: string;
 }
+
+/**
+ * SDKwork deployment profiles:
+ * - `cloud`: every module is served from its own sub-domain (`im.sdkwork.com`)
+ *   and the API lives on a single shared gateway host
+ *   (`api.sdkwork.com` / `api-dev.sdkwork.com`).
+ * - `standalone`: the module owns its whole domain and serves its own API, so
+ *   the API base URL is the current host itself.
+ */
+export type DeploymentMode = 'cloud' | 'standalone';
 
 /** Namespace under which runtime env variables are looked up. */
 export type BaseUrlRuntimeEnv = Record<string, unknown>;
 
 const DEFAULT_BASE_URL_ENV_KEY = 'SDKWORK_API_BASE_URL';
+
+/** Default local port of `sdkwork-api-cloud-gateway` (`pnpm dev`). */
+export const CLOUD_GATEWAY_DEV_PORT = '3910';
+
+/**
+ * Runtime env keys inspected to detect the deployment mode. Both the plain and
+ * the Vite-prefixed variants are read so the same package works in Vite apps
+ * (`import.meta.env`) and in plain Node/bundler runtimes.
+ */
+export const DEPLOYMENT_MODE_ENV_KEYS: ReadonlyArray<string> = [
+  'SDKWORK_DEPLOY_MODE',
+  'SDKWORK_DEPLOYMENT_PROFILE',
+  'VITE_SDKWORK_DEPLOY_MODE',
+  'VITE_SDKWORK_DEPLOYMENT_PROFILE',
+];
+
+/** Runtime env key overriding the local cloud-gateway port. */
+export const DEV_PORT_ENV_KEY = 'SDKWORK_API_DEV_PORT';
+
+/** Environment label used for localhost / IP based `pnpm dev` pages. */
+export const DEVELOPMENT_ENVIRONMENT_LABEL = 'development';
 
 /**
  * Environment suffixes that map a hostname like `im-dev.sdkwork.com` onto an
@@ -140,6 +188,122 @@ export function getApiHostForEnvironment(environmentLabel: string, brand: string
 }
 
 /**
+ * Normalize a raw deployment-mode value into {@link DeploymentMode}.
+ *
+ * Accepts `cloud` / `standalone` (any casing, with surrounding whitespace) and
+ * returns `undefined` for anything else so callers can fall through to the next
+ * env key.
+ */
+export function normalizeDeploymentMode(value: string | undefined): DeploymentMode | undefined {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (normalized === 'cloud' || normalized === 'standalone') {
+    return normalized;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve the deployment mode from an explicit override, then from the runtime
+ * env keys in {@link DEPLOYMENT_MODE_ENV_KEYS}, defaulting to `cloud`.
+ */
+export function resolveDeploymentMode(
+  options: {
+    /** Explicit mode; wins over runtime env. */
+    mode?: string | DeploymentMode | undefined;
+    /** Override the runtime env keys inspected (replaces the default list). */
+    modeEnvKeys?: readonly string[] | undefined;
+    /** Runtime env accessor; defaults to {@link readRuntimeEnv}. */
+    readEnv?: ((key: string) => string | undefined) | undefined;
+  } = {},
+): DeploymentMode {
+  const explicit = normalizeDeploymentMode(options.mode);
+  if (explicit) {
+    return explicit;
+  }
+  const readEnv = options.readEnv ?? readRuntimeEnv;
+  for (const key of options.modeEnvKeys ?? DEPLOYMENT_MODE_ENV_KEYS) {
+    const fromEnv = normalizeDeploymentMode(readEnv(key));
+    if (fromEnv) {
+      return fromEnv;
+    }
+  }
+  return 'cloud';
+}
+
+/**
+ * Resolve the host the API is expected to live on for the current context.
+ *
+ * - `cloud` + production:      `im.sdkwork.com`  -> `api.sdkwork.com`
+ * - `cloud` + dev:             `im-dev.sdkwork.com` -> `api-dev.sdkwork.com`
+ * - `standalone` (any env):    `im-dev.sdkwork.com` -> `im-dev.sdkwork.com`
+ * - local `pnpm dev` (`development`): `standalone` -> the current host itself
+ *   (same-origin IP + port); `cloud` -> the current host with the
+ *   cloud-gateway dev port (default {@link CLOUD_GATEWAY_DEV_PORT}).
+ */
+export function resolveApiHost(
+  options: {
+    /** Current page hostname (e.g. `im-dev.sdkwork.com`). */
+    hostname: string;
+    /** Deployment mode; defaults to `cloud`. */
+    mode?: DeploymentMode;
+    /** Environment label; derived from the hostname when omitted. */
+    environment?: string;
+    /** Local cloud-gateway port used in `development`; default `3910`. */
+    devPort?: string;
+  },
+): string {
+  const hostname = (options.hostname ?? '').trim().toLowerCase();
+  if (!hostname) {
+    return '';
+  }
+  const environment = (options.environment ?? getEnvironmentLabel(hostname)).toLowerCase();
+  if (environment === DEVELOPMENT_ENVIRONMENT_LABEL) {
+    // `pnpm dev` runs the page and (in cloud mode) the gateway on the same
+    // machine, so only the port differs.
+    return hostname;
+  }
+  if ((options.mode ?? 'cloud') === 'standalone') {
+    return hostname;
+  }
+  return getApiHostForEnvironment(environment, getBrand(hostname));
+}
+
+/**
+ * Resolve the port the API is expected to listen on for the current context.
+ * Only local `pnpm dev` pages carry a meaningful port; deployed hosts use the
+ * protocol default (empty string).
+ */
+export function resolveApiPort(
+  options: {
+    /** Current page hostname. */
+    hostname: string;
+    /** Deployment mode; defaults to `cloud`. */
+    mode?: DeploymentMode;
+    /** Environment label; derived from the hostname when omitted. */
+    environment?: string;
+    /** Current page port (used by standalone dev / same-origin). */
+    currentPort?: string;
+    /** Local cloud-gateway port used in `development`; default `3910`. */
+    devPort?: string;
+  },
+): string {
+  const hostname = (options.hostname ?? '').trim().toLowerCase();
+  if (!hostname) {
+    return '';
+  }
+  const environment = (options.environment ?? getEnvironmentLabel(hostname)).toLowerCase();
+  if (environment !== DEVELOPMENT_ENVIRONMENT_LABEL) {
+    return '';
+  }
+  if ((options.mode ?? 'cloud') === 'standalone') {
+    // Standalone dev: the API is served by the same dev server as the page.
+    return (options.currentPort ?? '').trim();
+  }
+  // Cloud dev: the API is served by `sdkwork-api-cloud-gateway` on its own port.
+  return (options.devPort ?? CLOUD_GATEWAY_DEV_PORT).trim();
+}
+
+/**
  * Resolve the SDK base URL for the current page/process.
  *
  * Reads the configured base-url list from runtime env (default key
@@ -147,13 +311,17 @@ export function getApiHostForEnvironment(environmentLabel: string, brand: string
  * contain several candidates separated by commas or semicolons.
  *
  * Selection strategy:
- * 1. Extract the current page's environment label and brand from
- *    `window.location.hostname` (or `options.hostname`).
- * 2. Prefer a candidate whose API host matches the current environment +
- *    brand (e.g. current `im-dev.sdkwork.com` -> `api-dev.sdkwork.com`),
- *    giving priority to the candidate that also matches the current protocol
- *    (`https` page -> `https://api-*`, `http` page -> `http://api-*`).
- * 3. If none matches, fall back to the first candidate.
+ * 1. Derive the *target* host/port from the current page's hostname, its
+ *    environment label (`dev` / `test` / `staging` / `production`, or
+ *    `development` for localhost/IP `pnpm dev` pages) and the deployment mode
+ *    (`cloud` -> shared `api[-env].<brand>` gateway, `standalone` -> the module
+ *    host itself).
+ * 2. Prefer a configured candidate that matches that target, giving priority to
+ *    the candidate that also matches the current protocol.
+ * 3. On a local dev page, an explicitly configured localhost/IP candidate wins
+ *    over derivation.
+ * 4. Otherwise derive the base URL from the current host (dev: same-origin for
+ *    standalone, `<host>:<gateway-dev-port>` for cloud).
  */
 export function resolveBaseUrl(
   options: {
@@ -165,8 +333,19 @@ export function resolveBaseUrl(
     hostname?: string;
     /** Override the current protocol (for tests/SSR); defaults to the window protocol. */
     protocol?: string;
+    /** Override the current port (for tests/SSR); defaults to the window port. */
+    port?: string;
     /** Runtime env accessor; defaults to {@link readRuntimeEnv}. */
     readEnv?: (key: string) => string | undefined;
+    /**
+     * Deployment mode override (`cloud` / `standalone`). When omitted it is read
+     * from {@link DEPLOYMENT_MODE_ENV_KEYS} and defaults to `cloud`.
+     */
+    mode?: string | DeploymentMode;
+    /** Override the runtime env keys inspected for the deployment mode. */
+    modeEnvKeys?: readonly string[];
+    /** Local cloud-gateway port; defaults to `SDKWORK_API_DEV_PORT` or `3910`. */
+    devPort?: string;
     /**
      * When `true`, keep the candidate's pathname/search/hash (e.g. a base URL
      * already ending in `/app/v3/api`). When `false` (default) the returned URL
@@ -175,51 +354,149 @@ export function resolveBaseUrl(
     preservePath?: boolean;
   } = {},
 ): BaseUrlResolution {
+  const readEnv = options.readEnv ?? readRuntimeEnv;
   const candidates = options.baseUrls
     ? splitBaseUrls(options.baseUrls)
-    : splitBaseUrls(
-        (options.readEnv ?? readRuntimeEnv)(options.envKey ?? DEFAULT_BASE_URL_ENV_KEY) ?? '',
-      );
+    : splitBaseUrls(readEnv(options.envKey ?? DEFAULT_BASE_URL_ENV_KEY) ?? '');
 
-  const currentHost = options.hostname ?? getCurrentHostname();
-  const currentProtocol = options.protocol ?? getCurrentProtocol();
+  const currentHost = (options.hostname ?? getCurrentHostname()).trim().toLowerCase();
+  const currentProtocol = (options.protocol ?? getCurrentProtocol()).trim().toLowerCase() || 'https';
+  const currentPort = (options.port ?? getCurrentPort()).trim();
+  const mode = resolveDeploymentMode({
+    mode: options.mode,
+    modeEnvKeys: options.modeEnvKeys,
+    readEnv,
+  });
   const environmentLabel = getEnvironmentLabel(currentHost);
-  const brand = getBrand(currentHost);
-  const expectedApiHost = getApiHostForEnvironment(environmentLabel, brand);
+  const devPort = (options.devPort ?? readEnv(DEV_PORT_ENV_KEY) ?? CLOUD_GATEWAY_DEV_PORT).trim();
   const normalizeCandidate = options.preservePath ? removeTrailingSlash : toBaseOrigin;
 
-  if (candidates.length === 0) {
-    // No configured candidates: derive the API host from the current page's
-    // environment + brand and the current protocol, so callers still get a
-    // working base URL without any env configuration.
-    if (currentHost && expectedApiHost) {
-      const derived = `${currentProtocol}://${expectedApiHost}`;
-      return { url: derived, reason: 'current-host-match' };
-    }
-    return { url: '', reason: 'empty' };
-  }
-
-  // Pass 1: same environment + brand + same protocol.
-  const sameProtocol = candidates.find((candidate) => {
-    const host = getHostname(candidate);
-    const protocol = getProtocol(candidate);
-    return (
-      host === expectedApiHost &&
-      protocol.toLowerCase() === currentProtocol.toLowerCase()
-    );
+  const targetHost = resolveApiHost({
+    hostname: currentHost,
+    mode,
+    environment: environmentLabel,
+    devPort,
   });
-  if (sameProtocol) {
-    return { url: normalizeCandidate(sameProtocol), reason: 'current-host-match' };
+  const targetPort = resolveApiPort({
+    hostname: currentHost,
+    mode,
+    environment: environmentLabel,
+    currentPort,
+    devPort,
+  });
+  const derivedUrl = targetHost
+    ? `${currentProtocol}://${targetHost}${targetPort ? `:${targetPort}` : ''}`
+    : '';
+
+  const result = (url: string, reason: BaseUrlResolution['reason']): BaseUrlResolution => ({
+    url,
+    reason,
+    mode,
+    environment: environmentLabel,
+    host: targetHost,
+  });
+
+  if (candidates.length === 0) {
+    return derivedUrl ? result(derivedUrl, 'derived-from-host') : result('', 'empty');
   }
 
-  // Pass 2: same environment + brand, any protocol.
-  const anyProtocol = candidates.find((candidate) => getHostname(candidate) === expectedApiHost);
-  if (anyProtocol) {
-    return { url: normalizeCandidate(anyProtocol), reason: 'current-host-match' };
+  const parts = candidates.map((candidate) => ({
+    candidate,
+    ...candidateParts(candidate),
+  }));
+
+  // Pass 1: exact host + port + protocol match.
+  const exact = parts.find(
+    (item) =>
+      item.host === targetHost &&
+      item.port === targetPort &&
+      item.protocol.toLowerCase() === currentProtocol,
+  );
+  if (exact) {
+    return result(normalizeCandidate(exact.candidate), 'current-host-match');
+  }
+
+  // Pass 2: exact host + port, any protocol. The candidate's scheme is
+  // aligned with the current page protocol: the cloud edge terminates both
+  // HTTP and HTTPS on the same gateway host, so an http:// page must target
+  // the http:// origin (a TLS-less dev edge would close the connection) and
+  // an https:// page must target https:// (avoiding mixed-content blocks).
+  const sameHostPort = parts.find((item) => item.host === targetHost && item.port === targetPort);
+  if (sameHostPort) {
+    return result(
+      normalizeCandidate(alignCandidateProtocol(sameHostPort.candidate, currentProtocol)),
+      'current-host-match',
+    );
+  }
+
+  // Pass 3: same host, ignoring an implicit default port.
+  const sameHost = parts.find(
+    (item) => item.host === targetHost && (!item.port || !targetPort),
+  );
+  if (sameHost) {
+    return result(
+      normalizeCandidate(alignCandidateProtocol(sameHost.candidate, currentProtocol)),
+      'current-host-match',
+    );
+  }
+
+  // Pass 4: local `pnpm dev` page with an explicitly configured local candidate.
+  if (environmentLabel === DEVELOPMENT_ENVIRONMENT_LABEL) {
+    const localCandidate = parts.find(
+      (item) => item.host.length > 0 && (isLocalhost(item.host) || isIpAddress(item.host)),
+    );
+    if (localCandidate) {
+      return result(normalizeCandidate(localCandidate.candidate), 'development-local-candidate');
+    }
+  }
+
+  // Pass 5: nothing matched — derive from the current host.
+  if (derivedUrl) {
+    return result(derivedUrl, 'derived-from-host');
   }
 
   // Fallback: first candidate.
-  return { url: normalizeCandidate(candidates[0] ?? ''), reason: 'fallback-first' };
+  return result(normalizeCandidate(candidates[0] ?? ''), 'fallback-first');
+}
+
+/**
+ * Rewrite an absolute http(s) candidate's protocol to the current page
+ * protocol. Only the scheme changes: host, port, path and query are kept.
+ * Non-absolute candidates, non-http(s) candidates and non-http(s) current
+ * protocols (e.g. mini-program runtimes without a window) are returned
+ * unchanged so local development candidates keep their explicit scheme.
+ */
+function alignCandidateProtocol(candidate: string, currentProtocol: string): string {
+  const parts = candidateParts(candidate);
+  if (!parts.host || !parts.protocol || parts.protocol === currentProtocol) {
+    return candidate;
+  }
+  const rewritable = (scheme: string) => scheme === 'http' || scheme === 'https';
+  if (!rewritable(parts.protocol) || !rewritable(currentProtocol)) {
+    return candidate;
+  }
+  return setProtocol(candidate, currentProtocol);
+}
+
+/**
+ * Split a candidate base URL into protocol/host/port. Relative candidates
+ * (e.g. `/app/v3/api`) yield empty components so they only ever win the final
+ * fallback pass.
+ */
+function candidateParts(candidate: string): { protocol: string; host: string; port: string } {
+  if (!isAbsolute(candidate)) {
+    return { protocol: '', host: '', port: '' };
+  }
+  try {
+    const parsed = new URL(candidate);
+    return {
+      protocol: parsed.protocol.replace(':', '').toLowerCase(),
+      host: parsed.hostname.toLowerCase(),
+      port: parsed.port,
+    };
+  } catch {
+    return { protocol: '', host: '', port: '' };
+  }
 }
 
 /**
@@ -251,6 +528,13 @@ function getCurrentProtocol(): string {
     return window.location.protocol.replace(':', '');
   }
   return 'https';
+}
+
+function getCurrentPort(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    return window.location.port ?? '';
+  }
+  return '';
 }
 
 export interface QueryParams {
