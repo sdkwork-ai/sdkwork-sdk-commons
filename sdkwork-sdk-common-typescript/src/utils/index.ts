@@ -115,6 +115,7 @@ export {
   normalizeDeploymentMode,
   resolveBaseUrl,
   alignBaseUrlToPageProtocol,
+  resolveBaseUrlWithAlignProtocol,
   CLOUD_GATEWAY_DEV_PORT,
   DEPLOYMENT_MODE_ENV_KEYS,
   DEV_PORT_ENV_KEY,

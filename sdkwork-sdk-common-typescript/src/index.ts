@@ -63,6 +63,7 @@ export {
   createRetryConfig,
   resolveBaseUrl,
   alignBaseUrlToPageProtocol,
+  resolveBaseUrlWithAlignProtocol,
   readRuntimeEnv,
   splitBaseUrls,
   getEnvironmentLabel,

@@ -460,6 +460,34 @@ export function resolveBaseUrl(
 }
 
 /**
+ * `resolveBaseUrl` with the §6.3 page-protocol adaptation applied to the final
+ * selection. This is the single entry point application composition roots
+ * should call: pass an explicit override through `options.baseUrls` (or let it
+ * read `SDKWORK_API_BASE_URL`) and the returned URL is guaranteed to use the
+ * page scheme in a browser — candidate matches are aligned inside
+ * {@link resolveBaseUrl}, and any path that returns a literal scheme
+ * (development-local candidate, fallback) is aligned here as a final pass.
+ *
+ * Without a browser window (mini-program/SSR runtimes) this is exactly
+ * {@link resolveBaseUrl}; pass `options.protocol` through to
+ * {@link alignBaseUrlToPageProtocol} semantics by pinning `options.protocol`
+ * if a non-browser page protocol is known.
+ */
+export function resolveBaseUrlWithAlignProtocol(
+  options: Parameters<typeof resolveBaseUrl>[0] = {},
+): BaseUrlResolution {
+  const resolution = resolveBaseUrl(options);
+  if (typeof window === 'undefined') {
+    return resolution;
+  }
+  const aligned = alignBaseUrlToPageProtocol(resolution.url);
+  if (aligned === resolution.url) {
+    return resolution;
+  }
+  return { ...resolution, url: aligned };
+}
+
+/**
  * Align an absolute http(s) base URL's scheme with the current page protocol
  * (ENVIRONMENT_SPEC.md §6.3 protocol adaptation). The serving edge terminates
  * HTTP and HTTPS on the same API host, so an http:// page must target the

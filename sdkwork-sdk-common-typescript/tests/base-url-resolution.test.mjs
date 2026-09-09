@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   resolveBaseUrl,
+  resolveBaseUrlWithAlignProtocol,
   alignBaseUrlToPageProtocol,
   readRuntimeEnv,
   splitBaseUrls,
@@ -419,6 +420,49 @@ test('alignBaseUrlToPageProtocol follows the page scheme in the browser', () => 
     if (originalWindow === undefined) {
       delete globalThis.window;
     } else {
+      globalThis.window = originalWindow;
+    }
+  }
+});
+
+test('resolveBaseUrlWithAlignProtocol returns the aligned single-call resolution', () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = { location: { protocol: 'http:', hostname: 'im-dev.sdkwork.com' } };
+  try {
+    // Explicit override candidate matching the page brand: aligned by the
+    // resolver's current-host-match pass.
+    const explicit = resolveBaseUrlWithAlignProtocol({
+      baseUrls: 'https://api-dev.sdkwork.com',
+    });
+    assert.equal(explicit.url, 'http://api-dev.sdkwork.com');
+    assert.equal(explicit.reason, 'current-host-match');
+
+    // No candidates: page-derived origin already uses the page scheme.
+    const derived = resolveBaseUrlWithAlignProtocol({ baseUrls: '' });
+    assert.equal(derived.url, 'http://api-dev.sdkwork.com');
+    assert.equal(derived.reason, 'derived-from-host');
+  } finally {
+    if (originalWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = originalWindow;
+    }
+  }
+});
+
+test('resolveBaseUrlWithAlignProtocol is resolveBaseUrl without a window', () => {
+  const originalWindow = globalThis.window;
+  delete globalThis.window;
+  try {
+    const result = resolveBaseUrlWithAlignProtocol({
+      baseUrls: 'https://api-dev.sdkwork.com',
+      hostname: 'im-dev.sdkwork.com',
+      protocol: 'https',
+    });
+    assert.equal(result.url, 'https://api-dev.sdkwork.com');
+    assert.equal(result.reason, 'current-host-match');
+  } finally {
+    if (originalWindow !== undefined) {
       globalThis.window = originalWindow;
     }
   }
