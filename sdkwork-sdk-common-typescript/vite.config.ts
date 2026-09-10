@@ -26,6 +26,10 @@ export default defineConfig({
     },
   },
   resolve: {
+    // Resolve TypeScript sources before any stale compiled `*.js` emitted next
+    // to them by a previous `tsc` run; otherwise Vite would bundle outdated
+    // artifacts instead of the real source of truth.
+    extensions: ['.ts', '.tsx', '.mts', '.mjs', '.js', '.jsx', '.json'],
     alias: {
       '@': resolve(__dirname, 'src'),
     },

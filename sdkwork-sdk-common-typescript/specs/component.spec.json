@@ -4,7 +4,7 @@
   "component": {
     "name": "@sdkwork/sdk-common",
     "displayName": "Sdk Common",
-    "version": "1.0.4",
+    "version": "1.0.10",
     "type": "node-package",
     "root": "sdkwork-sdk-commons/sdkwork-sdk-common-typescript",
     "domain": "platform",
@@ -66,11 +66,17 @@
     "routeManifest": null,
     "sdkClients": [],
     "events": [],
-    "configKeys": []
+    "configKeys": [
+      "SDKWORK_API_BASE_URL",
+      "SDKWORK_DEPLOYMENT_PROFILE",
+      "VITE_SDKWORK_DEPLOYMENT_PROFILE",
+      "SDKWORK_API_DEV_PORT"
+    ]
   },
   "verification": {
     "commands": [
-      "pnpm typecheck"
+      "pnpm typecheck",
+      "pnpm test"
     ]
   }
 }

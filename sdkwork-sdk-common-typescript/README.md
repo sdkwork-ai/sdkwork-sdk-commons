@@ -57,6 +57,44 @@ const client = createBaseHttpClient({
 - `errors`: SDK error hierarchy and type guards
 - `utils`: retry, cache, logger, string/encoding/date/object helpers
 
+## Base URL Resolution (`resolveBaseUrl`)
+
+`resolveBaseUrl` is the single browser/runtime implementation of the SDKwork
+base-URL lifecycle matrix (`ENVIRONMENT_SPEC.md` §6.3 / §5.1.4.0 / §6.2.1).
+All H5, PC web, desktop renderer, and mini-program surfaces must construct
+SDK client base origins through it instead of hand-rolled env chains or host
+rewriting.
+
+```typescript
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
+
+const runtime = resolveBaseUrl(); // reads SDKWORK_API_BASE_URL by default
+const origin = runtime.url;       // bare origin; append /app/v3/api etc. per surface
+```
+
+Behavior:
+
+- Reads the unified `SDKWORK_API_BASE_URL` key (or `options.envKey`); the value
+  may hold several candidate origins separated by commas or semicolons.
+- Selects the candidate matching the current page host's environment
+  (`-dev` / `-test` / `-staging` suffix, none = production), brand, and
+  deployment mode (`SDKWORK_DEPLOYMENT_PROFILE` / `VITE_SDKWORK_DEPLOYMENT_PROFILE`,
+  `cloud` | `standalone`, default `cloud`), preferring the page protocol.
+- Derives the origin from the page host when no candidate matches:
+  - built cloud: `im.sdkwork.com` → `api.sdkwork.com`,
+    `im-dev.sdkwork.com` → `api-dev.sdkwork.com`
+  - built standalone: same origin as the page
+  - `pnpm dev` standalone: same-origin ip+port of the dev server
+  - `pnpm dev` cloud: the local `sdkwork-api-cloud-gateway` dev port
+    (`CLOUD_GATEWAY_DEV_PORT`, `3910`; override `SDKWORK_API_DEV_PORT`)
+- Mini-programs / desktop runtimes without `window.location` pass
+  `{ hostname, protocol, port }` explicitly; the matrix is identical.
+- Returns `{ url, reason, mode, environment, host }`; `reason` ∈
+  `current-host-match` | `development-local-candidate` | `derived-from-host`
+  | `fallback-first` | `empty` (never throws).
+
+Compliance gate for the workspace:
+`node sdkwork-specs/tools/check-base-url-resolution.mjs --workspace <root>`.
 
 ## Publishing
 
