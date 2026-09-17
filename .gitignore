@@ -106,3 +106,8 @@ Thumbs.db
 **/src/**/*.d.ts
 # Runtime-generated environment configuration
 **/public/runtime-env.json
+
+# Kotlin/Gradle local build output (do not commit)
+**/bin/
+**/build/
+**/.gradle/
