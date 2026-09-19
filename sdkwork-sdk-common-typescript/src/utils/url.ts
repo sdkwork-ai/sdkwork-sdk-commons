@@ -16,10 +16,14 @@ export interface UrlComponents {
  * reason it was selected so callers can log/debug which candidate won.
  */
 export interface BaseUrlResolution {
-  /** The selected absolute base URL (trailing slash removed). */
+  /** The selected absolute base URL (trailing slash removed). Relative same-origin bases are returned verbatim. */
   url: string;
   /**
    * How the selection was made:
+   * - `same-origin-relative`: a relative candidate (leading `/`) was supplied;
+   *   it IS the same-origin contract and is returned verbatim — the page
+   *   origin fronts every router-owned surface, so no host derivation applies
+   *   (BROWSER_RUNTIME_ENV_SPEC.md §5).
    * - `current-host-match`: matched a configured candidate for the current
    *   page's environment + brand + deployment mode, preferring the same
    *   protocol.
@@ -32,6 +36,7 @@ export interface BaseUrlResolution {
    * - `empty`: no candidates were available and nothing could be derived.
    */
   reason:
+    | 'same-origin-relative'
     | 'current-host-match'
     | 'development-local-candidate'
     | 'derived-from-host'
@@ -41,7 +46,7 @@ export interface BaseUrlResolution {
   mode: DeploymentMode;
   /** Environment label derived from the current host. */
   environment: string;
-  /** Host the resolved base URL points at (empty when unresolved). */
+  /** Host the resolved base URL points at (empty for same-origin-relative). */
   host: string;
 }
 
@@ -98,6 +103,19 @@ const ENV_SUFFIXES: ReadonlyArray<{ label: string; suffix: string }> = [
  * source is available or the key is unset.
  */
 export function readRuntimeEnv(key: string): string | undefined {
+  // Browser runtime bridge (BROWSER_RUNTIME_ENV_SPEC.md §4): applications
+  // publish their runtime document to this global so shared resolvers see
+  // deployment-mode and base-url keys inside the browser, where neither a
+  // statically analyzable `import.meta.env` nor a `process` polyfill may
+  // exist.
+  const bridge = (globalThis as Record<string, unknown>)[
+    'SDKWORK_RUNTIME_ENV'
+  ] as { [key: string]: unknown } | undefined;
+  const bridgeValue = bridge?.[key];
+  if (typeof bridgeValue === 'string' && bridgeValue.length > 0) {
+    return bridgeValue;
+  }
+
   // Vite / bundler-injected env (import.meta.env). We access it dynamically to
   // stay tree-shakeable and avoid hard-coupling the package to Vite.
   const viteEnv = (globalThis as Record<string, unknown>)['import' + '.meta'] as
@@ -404,6 +422,20 @@ export function resolveBaseUrl(
     candidate,
     ...candidateParts(candidate),
   }));
+
+  // A relative candidate (leading `/`) IS the same-origin contract: the page
+  // origin fronts every router-owned surface, so it is returned verbatim
+  // instead of being re-derived against the deployment-mode heuristic (which
+  // would absolutize it to a gateway dev port the page never serves).
+  const relativeCandidate = parts.find(
+    (item) => item.candidate.startsWith('/') && !item.candidate.startsWith('//'),
+  );
+  if (relativeCandidate) {
+    return {
+      ...result(relativeCandidate.candidate.replace(/\/+$/u, '') || '/', 'same-origin-relative'),
+      host: '',
+    };
+  }
 
   // Pass 1: exact host + port + protocol match.
   const exact = parts.find(

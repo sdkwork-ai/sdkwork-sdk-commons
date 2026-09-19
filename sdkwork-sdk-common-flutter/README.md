@@ -6,7 +6,7 @@ Common Flutter/Dart foundation package for generated SDKs.
 
 ```yaml
 dependencies:
-  sdkwork_common_flutter: ^1.0.0
+  sdkwork_common_flutter: ^1.1.0
 ```
 
 ## Authentication Modes
@@ -48,10 +48,44 @@ final client = BaseHttpClient(
 );
 ```
 
+## Response Envelope
+
+Every SDKWORK OpenAPI surface wraps its payload in a canonical envelope:
+
+- list -> `{"data": {"items": [...], "pageInfo": {...}}}`
+- single -> `{"data": {"item": {...}}}`
+
+Generated clients erase the concrete element type of `items` and `item`, so use
+the envelope helpers instead of re-walking maps in each package:
+
+```dart
+import 'package:sdkwork_common_flutter/sdkwork_common_flutter.dart';
+
+final items = decodeEnvelopeItems(response.data, MyModel.fromJson);
+final single = decodeEnvelopeItem(response.data, MyModel.fromJson);
+final pageInfo = readEnvelopePageInfo(response.data);
+final raw = asJsonMap(response.data);
+```
+
+Model construction stays in the consuming package; these helpers only navigate
+the envelope shape.
+
+## Client Ids
+
+Idempotent write APIs bind a client-supplied id as their deduplication key:
+
+```dart
+final clientMessageId = generateSecureHexId(prefix: 'flutter');
+final conversationId = generateSecureHexId(prefix: 'direct');
+```
+
 ## Exports
 
 - `SdkConfig`
 - `BaseHttpClient`
+- `asJsonMap`, `readEnvelopeData`, `readEnvelopePageInfo`, `readEnvelopeItem`,
+  `readEnvelopeItems`, `decodeEnvelopeItems`, `decodeEnvelopeItem`
+- `generateSecureHexId`, `secureIdByteLength`
 
 
 ## Publishing

@@ -467,3 +467,47 @@ test('resolveBaseUrlWithAlignProtocol is resolveBaseUrl without a window', () =>
     }
   }
 });
+
+test('relative candidates are the same-origin contract and bypass host derivation', () => {
+  // BROWSER_RUNTIME_ENV_SPEC.md section 5: a relative base IS the same-origin
+  // contract. Regression: deriving it used to absolutize the page host with
+  // the cloud gateway dev port (http://127.0.0.1:3910) because the browser
+  // cannot see the deployment-mode env keys.
+  const result = resolveBaseUrl({
+    baseUrls: '/app/v3/api',
+    hostname: '127.0.0.1',
+    port: '4734',
+    protocol: 'http',
+  });
+  assert.equal(result.url, '/app/v3/api');
+  assert.equal(result.reason, 'same-origin-relative');
+  assert.equal(result.host, '');
+
+  const aligned = resolveBaseUrlWithAlignProtocol({
+    baseUrls: '/app/v3/api',
+    hostname: '127.0.0.1',
+    port: '4734',
+    protocol: 'http',
+  });
+  assert.equal(aligned.url, '/app/v3/api');
+  assert.equal(aligned.reason, 'same-origin-relative');
+});
+
+test('readRuntimeEnv reads the SDKWORK_RUNTIME_ENV browser bridge first', () => {
+  const original = globalThis.SDKWORK_RUNTIME_ENV;
+  globalThis.SDKWORK_RUNTIME_ENV = {
+    VITE_SDKWORK_DEPLOYMENT_PROFILE: 'standalone',
+    SDKWORK_API_BASE_URL: '/app/v3/api',
+  };
+  try {
+    assert.equal(readRuntimeEnv('VITE_SDKWORK_DEPLOYMENT_PROFILE'), 'standalone');
+    assert.equal(readRuntimeEnv('SDKWORK_API_BASE_URL'), '/app/v3/api');
+    assert.equal(resolveDeploymentMode({ readEnv: readRuntimeEnv }), 'standalone');
+  } finally {
+    if (original === undefined) {
+      delete globalThis.SDKWORK_RUNTIME_ENV;
+    } else {
+      globalThis.SDKWORK_RUNTIME_ENV = original;
+    }
+  }
+});
