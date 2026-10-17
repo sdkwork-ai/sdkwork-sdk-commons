@@ -43,7 +43,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "vite build && tsc --emitDeclarationOnly --outDir dist",
+    "build:deps": "pnpm --filter @sdkwork/utils build",
+    "build": "pnpm run build:deps && vite build && tsc --emitDeclarationOnly --outDir dist",
     "dev": "vite build --watch",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
